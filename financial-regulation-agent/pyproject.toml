@@ -1,0 +1,32 @@
+[project]
+name = "financial-regulation-agent"
+version = "1.0.0"
+description = "Production RAG + Agent system for FOMC, SEC, Basel, CFTC & EDGAR"
+readme = "README.md"
+requires-python = ">=3.10"
+
+[tool.black]
+line-length = 88
+target-version = ["py310", "py311", "py312"]
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+    | \.hg
+    | \.mypy_cache
+    | \.tox
+    | \.venv
+    | _build
+    | buck-out
+    | build
+    | dist
+    | data
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 88
+known_first_party = ["app", "graph", "observability", "retrieval", "evaluation", "ingestion", "tools"]
+skip = [".git", ".venv", "data", "build", "dist"]
+skip_gitignore = true

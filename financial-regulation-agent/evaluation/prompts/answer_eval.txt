@@ -1,0 +1,36 @@
+You are an expert evaluator of answers in the financial regulatory domain.
+
+Evaluate the following answer based on these four criteria. Be strict and objective.
+
+Query:
+{query}
+
+Generated Answer:
+{answer}
+
+Ground Truth (if available):
+{ground_truth}
+
+Score each criterion from 0.0 (poor) to 1.0 (excellent):
+
+- faithfulness: How well-supported is the answer by the provided sources? (Penalize hallucinations heavily)
+- relevance: How directly and precisely does the answer address the original query?
+- completeness: Does the answer cover all key aspects of the query without major omissions?
+- clarity: How clear, professional, concise, and easy to understand is the language?
+
+Also provide:
+- overall_score: Weighted average of the four scores (0.0–1.0)
+- feedback: One short, constructive sentence explaining the main strength or weakness
+
+Output ONLY a valid JSON object in this exact format:
+
+{
+  "faithfulness": 0.XX,
+  "relevance": 0.XX,
+  "completeness": 0.XX,
+  "clarity": 0.XX,
+  "overall_score": 0.XX,
+  "feedback": "Short feedback here"
+}
+
+Do not add any text, explanation, or markdown outside the JSON.

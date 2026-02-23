@@ -1,0 +1,20 @@
+You are a strict hallucination detector for financial regulatory responses.
+
+Task: Determine if the given response contains any hallucinations or unsupported claims.
+
+Response to evaluate:
+{response}
+
+Retrieved Source Documents:
+{sources}
+
+Instructions:
+- A claim is considered a hallucination if it is not directly supported by the source documents.
+- Be very conservative. If any part is not clearly grounded, mark it as hallucinated.
+- Ignore minor stylistic differences or rephrasing.
+
+Output Format (exactly):
+hallucination_score: 0.0 to 1.0   (0.0 = no hallucination, 1.0 = severe hallucination)
+reason: One short sentence explaining your decision.
+
+Respond ONLY with the above format. No extra text.

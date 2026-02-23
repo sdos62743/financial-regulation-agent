@@ -1,0 +1,27 @@
+# --- Base Requirements ---
+-r requirements.txt
+
+# --- Formatting & Linting ---
+black>=24.0.0
+isort>=5.13.0
+# ruff is the new standard—it's 10x faster than other linters 
+# and catches the "from __future__" issues automatically.
+ruff>=0.3.0
+
+# --- Type Checking ---
+# Essential for your | (Union) and Optional[str] logic.
+mypy>=1.11.0
+# Type stubs for libraries that don't include them
+types-requests
+types-PyYAML
+
+# --- Testing ---
+pytest>=8.3.0
+pytest-asyncio>=0.23.0  # Required for testing FastAPI/Async code
+pytest-cov>=5.0.0      # Generates reports to see what code isn't tested
+httpx>=0.27.0
+
+# --- Debugging & Productivity ---
+ipython                # Better interactive shell than default python
+python-dotenv          # To load your OPENAI_API_KEY from a .env file locally
+pip-tools              # Helps manage dependency versions

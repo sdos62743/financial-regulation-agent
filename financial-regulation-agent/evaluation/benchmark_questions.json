@@ -1,0 +1,47 @@
+[
+  {
+    "id": "Q1_REG_LOOKUP",
+    "question": "What are the specific record-keeping requirements for swap dealers under CFTC Rule 23.202 regarding daily trading records?",
+    "expected_intent": "regulatory_lookup",
+    "difficulty": "Medium"
+  },
+  {
+    "id": "Q2_CALC",
+    "question": "Based on the latest Basel III framework documents, if a bank has Tier 1 Capital of $500M and Total Risk-Weighted Assets of $4.5B, what is its Tier 1 Leverage Ratio? Does this meet the 3% minimum requirement?",
+    "expected_intent": "calculation",
+    "difficulty": "High"
+  },
+  {
+    "id": "Q3_STRUCT",
+    "question": "Extract all enforcement actions mentioned in the documents related to 'insider trading' from 2024. Return a JSON list with 'entity', 'fine_amount', and 'date'.",
+    "expected_intent": "structured",
+    "difficulty": "Medium"
+  },
+  {
+    "id": "Q4_REASONING",
+    "question": "Compare the SEC's 2024 climate disclosure requirements with the previous 2010 guidance. What are the three most significant additions in the new rule?",
+    "expected_intent": "reasoning",
+    "difficulty": "High"
+  },
+  {
+    "id": "Q5_HALLUCINATION_TEST",
+    "question": "What are the penalties for violating the 2026 Crypto-Asset Liquidity Rule?",
+    "expected_intent": "regulatory_lookup",
+    "note": "This tests if the agent admits a lack of info (since 2026 rules might not exist in docs) or hallucinates.",
+    "difficulty": "Critical"
+  },
+  {
+    "id": "Q6_MONETARY",
+    "question": "What did the latest FOMC statement say about inflation targets and the path of interest rates?",
+    "expected_intent": "regulatory_lookup",
+    "expected_sources": ["FOMC"],
+    "difficulty": "Medium"
+  },
+  {
+    "id": "Q7_TREND_ANALYSIS",
+    "question": "Based on retrieved documents, did bank capital ratios generally improve following the implementation of Basel III standards? Provide a brief summary of the trend.",
+    "expected_intent": "reasoning",
+    "expected_sources": ["Basel", "CapitalData"],
+    "difficulty": "High"
+  }  
+]

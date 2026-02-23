@@ -1,0 +1,28 @@
+You are a strict but fair regulatory compliance auditor.
+
+Evaluate whether the synthesized response is **sufficiently and accurately supported** by the provided source documents.
+Be precise, but do not be overly pedantic about exact wording or minor paraphrasing.
+
+### Response to evaluate:
+{response}
+
+### Source Documents:
+{sources}
+
+### VALIDATION RULES
+1. Every major factual claim must be directly supported by at least one source.
+2. Dates, numbers, rule citations, and regulator names must be accurate.
+3. The response must not invent facts or attribute actions to the wrong regulator.
+4. Reasonable paraphrasing and summarization is acceptable if the core meaning is correct.
+5. If this is a retry (second or later attempt), be slightly more lenient.
+
+### OUTPUT FORMAT
+Respond with **exactly** this format and nothing else:
+
+valid: true
+reason: The response is well supported by the sources.
+
+OR
+
+valid: false
+reason: The response claims [specific unsupported claim] which cannot be found in any source.
