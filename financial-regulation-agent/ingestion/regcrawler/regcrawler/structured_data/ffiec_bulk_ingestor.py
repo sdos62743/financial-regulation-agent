@@ -8,7 +8,7 @@ from typing import List
 
 from langchain_core.documents import Document
 from observability.logger import log_error, log_info
-from .vector_store import add_documents
+from retrieval.vector_store import add_documents
 
 class FFIECBulkIngestor:
     """
@@ -84,3 +84,8 @@ class FFIECBulkIngestor:
         if docs:
             log_info(f"Generated {len(docs)} bank capital narratives.")
             add_documents(docs)
+            log_info("✅ FFIEC bulk ingestion complete.")
+
+
+if __name__ == "__main__":
+    FFIECBulkIngestor().run()

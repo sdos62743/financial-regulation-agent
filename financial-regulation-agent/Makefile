@@ -2,11 +2,15 @@
 # Makefile - Production Commands for Financial Regulation Agent
 # =============================================================================
 
-.PHONY: help scrape ingest all docker-up docker-down docker-logs docker-build clean test shell
+.PHONY: help scrape ingest ingest-structured all docker-up docker-down docker-logs docker-build clean test shell spiders
 
 # Default values (can be overridden from command line)
 LIMIT ?= 20
 YEAR  ?= All
+SPIDER ?=
+
+# All available spiders (Scrapy name). Run one: make scrape SPIDER=fomc
+SPIDERS := basel_pdf cftc_enforcer edgar_filings fca fdic fed_reserve fincen fomc sec_enforcement sec_rules sec_speeches
 
 # =============================================================================
 # Help
@@ -19,9 +23,11 @@ help:
 	@echo "make scrape          → Run all spiders"
 	@echo "make scrape LIMIT=10 YEAR=2023"
 	@echo "make scrape SPIDER=sec_speeches  → Run only one spider"
+	@echo "make spiders         → List all spider names"
 	@echo ""
 	@echo "make ingest          → Run ingestion pipeline only"
 	@echo "make ingest LIMIT=50"
+	@echo "make ingest-structured → Ingest Treasury, SOFR, FRED into vector store"
 	@echo ""
 	@echo "make all             → Scrape + Ingest (full pipeline)"
 	@echo "make count-db        → Show document count in vector store"
@@ -45,9 +51,20 @@ scrape:
 	@echo "🕸️  Running spiders... LIMIT=$(LIMIT) YEAR=$(YEAR)$(if $(SPIDER), SPIDER=$(SPIDER),)"
 	./run_all.sh --limit $(LIMIT) --year $(YEAR) $(if $(SPIDER),--spider $(SPIDER),)
 
+# List all spiders (use these names with make scrape SPIDER=name)
+spiders:
+	@echo "Available spiders (run with: make scrape SPIDER=<name>):"
+	@for s in $(SPIDERS); do echo "  $$s"; done
+	@echo ""
+	@echo "Example: make scrape SPIDER=fomc LIMIT=10"
+
 ingest:
 	@echo "📥 Running ingestion pipeline..."
 	python3.11 ingestion/ingest_scraped_docs.py --limit $(LIMIT)
+
+ingest-structured:
+	@echo "📥 Ingesting structured data (Treasury, SOFR, FRED, FFIEC)..."
+	python3.11 ingestion/regcrawler/regcrawler/structured_data/structured_data_ingest.py
 
 count-db:
 	$(PYTHON) -c "from retrieval.vector_store import get_vector_store; vs = get_vector_store(); count = vs._collection.count(); print(f'📊 Total documents in vector store: {count}')"

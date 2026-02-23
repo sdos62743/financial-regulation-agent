@@ -12,6 +12,8 @@ from langchain_core.documents import Document
 from observability.logger import log_error, log_info, log_warning
 from retrieval.vector_store import add_documents
 
+from .ffiec_bulk_ingestor import FFIECBulkIngestor
+
 class FinancialDataIngestor:
     def __init__(self):
         self.session = self._setup_session()
@@ -148,6 +150,11 @@ class FinancialDataIngestor:
         all_docs.extend(self.fetch_treasury_rates())
         all_docs.extend(self.fetch_sofr_rates())
         all_docs.extend(self.fetch_fed_funds())
+
+        # FFIEC bulk (Call Report capital ratios)
+        ffiec = FFIECBulkIngestor()
+        ffiec_docs = ffiec.download_and_extract()
+        all_docs.extend(ffiec_docs)
 
         if all_docs:
             log_info(f"Ingesting {len(all_docs)} structured data points into Chroma...")
