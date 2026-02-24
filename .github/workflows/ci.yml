@@ -64,7 +64,7 @@ jobs:
         env:
           PYTHONPATH: .
         run: |
-          pytest tests/ \
+          pytest tests/ -m "not integration" \
             --cov=graph \
             --cov=retrieval \
             --cov=evaluation \

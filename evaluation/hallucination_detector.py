@@ -44,8 +44,14 @@ async def detect_hallucinations(generated_response: str, retrieved_docs: list) -
     )
 
     # Prepare sources (limit length to avoid token overflow)
+    # Support both Document objects and dicts
+    def _get_content(doc):
+        if hasattr(doc, "page_content"):
+            return doc.page_content[:750]
+        return str(doc.get("page_content", ""))[:750]
+
     sources_text = (
-        "\n\n".join(doc.get("page_content", "")[:750] for doc in retrieved_docs[:6])
+        "\n\n".join(_get_content(doc) for doc in retrieved_docs[:6])
         or "No source documents provided."
     )
 
@@ -53,7 +59,11 @@ async def detect_hallucinations(generated_response: str, retrieved_docs: list) -
         chain = hallucination_prompt | _get_eval_llm()
 
         result = await chain.ainvoke(
-            {"response": generated_response, "sources": sources_text}
+            {
+                "query": "Evaluate hallucination",  # Placeholder; loader adds {query}
+                "response": generated_response,
+                "sources": sources_text,
+            }
         )
 
         output = result.content.strip().lower()

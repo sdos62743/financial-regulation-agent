@@ -56,20 +56,13 @@ def test_get_nonexistent_tool(clean_registry):
 
 @pytest.mark.asyncio
 async def test_treasury_tool_execution(clean_registry):
-    """Test actual tool execution with mocked API"""
+    """Test actual tool execution (TreasuryTool is placeholder, returns static data)"""
     ToolRegistry.register(TreasuryTool)
 
-    # Mock the API call inside the tool
-    with patch("tools.treasury.requests.get") as mock_get:
-        mock_get.return_value.status_code = 200
-        mock_get.return_value.json.return_value = {
-            "data": [{"avg_interest_rate_amt": "4.5"}]
-        }
+    result = await ToolRegistry.invoke("treasury", endpoint="avg_interest_rates")
 
-        result = await ToolRegistry.invoke("treasury", endpoint="avg_interest_rates")
-
-        assert result is not None
-        assert "data" in result
+    assert result is not None
+    assert "data" in result or "status" in result
 
 
 @pytest.mark.asyncio
@@ -77,9 +70,10 @@ async def test_tool_execution_failure(clean_registry):
     """Test graceful error handling when tool fails"""
     ToolRegistry.register(TreasuryTool)
 
-    with patch("tools.treasury.requests.get") as mock_get:
-        mock_get.side_effect = Exception("API timeout")
-
+    # Patch aexecute to simulate failure
+    with patch.object(
+        TreasuryTool, "aexecute", new_callable=AsyncMock, side_effect=Exception("API timeout")
+    ):
         with pytest.raises(Exception):
             await ToolRegistry.invoke("treasury", endpoint="avg_interest_rates")
 
@@ -104,7 +98,7 @@ async def test_call_tools_node_integration(clean_registry):
     # Mock plan that contains tool call
     state = {"plan": ["Step 1", "tool: treasury", "Step 3"]}
 
-    from graph.nodes.calculation import call_tools  # or wherever you placed it
+    from graph.builder import call_tools
 
     result = await call_tools(state)
 

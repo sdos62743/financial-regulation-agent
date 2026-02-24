@@ -69,9 +69,8 @@ async def hybrid_search(
 
     log_info(f"🔎 [Hybrid Search] Query: {query[:60]}... | Filters: {filters}")
 
-    store = get_vector_store()
-
     try:
+        store = get_vector_store()
         # 1. Build Filtered Search Args with Chroma Logical Operators
         search_kwargs = {"k": top_k * 4}
         chroma_filter = {}
