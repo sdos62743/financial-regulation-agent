@@ -72,7 +72,10 @@ async def test_tool_execution_failure(clean_registry):
 
     # Patch aexecute to simulate failure
     with patch.object(
-        TreasuryTool, "aexecute", new_callable=AsyncMock, side_effect=Exception("API timeout")
+        TreasuryTool,
+        "aexecute",
+        new_callable=AsyncMock,
+        side_effect=Exception("API timeout"),
     ):
         with pytest.raises(Exception):
             await ToolRegistry.invoke("treasury", endpoint="avg_interest_rates")

@@ -55,7 +55,10 @@ async def test_full_graph_regulatory_lookup(mock_get_llm, sample_state):
     response = result.get("synthesized_response") or result.get("final_output", "")
     assert isinstance(response, str)
     assert len(response) > 10
-    assert result.get("validation_result") is True or result.get("validation_result") is False
+    assert (
+        result.get("validation_result") is True
+        or result.get("validation_result") is False
+    )
 
 
 @pytest.mark.integration
@@ -80,7 +83,9 @@ async def test_full_graph_calculation(mock_get_llm, sample_state):
         "calculation" in str(o).lower() or "calculation_result" in str(o)
         for o in tool_outputs
     )
-    assert "tool_outputs" in result or has_calc or len(result.get("final_output", "")) > 0
+    assert (
+        "tool_outputs" in result or has_calc or len(result.get("final_output", "")) > 0
+    )
 
 
 @pytest.mark.asyncio

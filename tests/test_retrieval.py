@@ -45,7 +45,10 @@ def _make_mock_store(docs=None):
 
     mock_store = MagicMock()
     mock_store.as_retriever.return_value = mock_retriever
-    mock_store.get.return_value = {"documents": [d.page_content for d in docs], "metadatas": [d.metadata for d in docs]}
+    mock_store.get.return_value = {
+        "documents": [d.page_content for d in docs],
+        "metadatas": [d.metadata for d in docs],
+    }
     mock_store._collection.count.return_value = len(docs)
     mock_store.delete_collection.return_value = None
     mock_store.add_documents.return_value = None
@@ -61,9 +64,7 @@ async def test_hybrid_search_basic(mock_hs_store, mock_vs_store, sample_document
     mock_hs_store.return_value = mock_store
     mock_vs_store.return_value = mock_store
 
-    results = await hybrid_search(
-        "What did the FOMC say about interest rates?", k=2
-    )
+    results = await hybrid_search("What did the FOMC say about interest rates?", k=2)
 
     assert len(results) <= 2
     assert all(isinstance(doc, Document) for doc in results)
