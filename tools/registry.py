@@ -16,24 +16,28 @@ tools_to_register = []
 
 try:
     from .bank_capital import BankCapitalTool
+
     tools_to_register.append(BankCapitalTool)
 except ImportError:
     log_warning("BankCapitalTool not found or file is empty. Skipping registration.")
 
 try:
     from .treasury import TreasuryTool
+
     tools_to_register.append(TreasuryTool)
 except ImportError:
     log_warning("TreasuryTool not found. Skipping registration.")
 
 try:
     from .fed_balance_sheet import FedBalanceSheetTool
+
     tools_to_register.append(FedBalanceSheetTool)
 except ImportError:
     log_warning("FedBalanceSheetTool not found. Skipping registration.")
 
 try:
     from .market_data import MarketDataTool
+
     tools_to_register.append(MarketDataTool)
 except ImportError:
     log_warning("MarketDataTool not found. Skipping registration.")

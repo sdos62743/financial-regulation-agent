@@ -4,11 +4,14 @@ Retrieval-Augmented Generation (RAG) Node - Tier 1 Optimized
 Focuses on passing full Document objects for Synthesis Node compatibility.
 """
 
-from typing import Dict, Any
+from typing import Any, Dict
+
 from langchain_core.documents import Document
+
+from graph.state import AgentState
 from observability.logger import log_error, log_info, log_warning
 from retrieval.hybrid_search import hybrid_search
-from graph.state import AgentState
+
 
 async def retrieve_docs(state: AgentState) -> Dict[str, Any]:
     """
@@ -28,8 +31,8 @@ async def retrieve_docs(state: AgentState) -> Dict[str, Any]:
         # Execute the optimized hybrid search
         docs = await hybrid_search(
             query=query,
-            k=8, # Reduced from 12 to 8 to manage token context window
-            filters=filters
+            k=8,  # Reduced from 12 to 8 to manage token context window
+            filters=filters,
         )
 
         if not docs:
@@ -45,7 +48,7 @@ async def retrieve_docs(state: AgentState) -> Dict[str, Any]:
                 doc.metadata = {"source": "Unknown"}
 
         log_info(f"✅ [RAG Node] Retrieved {len(docs)} Document objects")
-        
+
         # We return the objects directly. LangGraph handles the state.
         return {"retrieved_docs": docs}
 

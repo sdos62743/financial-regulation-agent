@@ -1,24 +1,31 @@
 """
 Interactive Chroma collection cleanup — list collections, delete by name or all.
 """
-import chromadb
+
 import os
 import sys
 from pathlib import Path
+
+import chromadb
 
 # Add project root to path before any project imports
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
 
 from dotenv import load_dotenv
+
 load_dotenv(BASE_DIR / ".env")
 from observability.logger import log_info, log_warning
+
 DEFAULT_DB_PATH = BASE_DIR / "data" / "chroma_db"
 PERSIST_PATH = os.getenv("CHROMA_PERSIST_DIR", str(DEFAULT_DB_PATH))
 
+
 def manage_collections():
     if not os.path.exists(PERSIST_PATH):
-        log_warning(f"❌ Path {PERSIST_PATH} not found. Check your vector_store.py settings.")
+        log_warning(
+            f"❌ Path {PERSIST_PATH} not found. Check your vector_store.py settings."
+        )
         return
 
     # Initialize the Persistent Client
@@ -38,10 +45,12 @@ def manage_collections():
     print("-------------------------------\n")
 
     # 2. Ask which one to delete
-    target_name = input("Type the NAME of the collection you want to DELETE (or 'all' to wipe everything): ").strip()
+    target_name = input(
+        "Type the NAME of the collection you want to DELETE (or 'all' to wipe everything): "
+    ).strip()
 
     try:
-        if target_name.lower() == 'all':
+        if target_name.lower() == "all":
             for name in collection_names:
                 client.delete_collection(name)
                 log_info(f"🗑️ Deleted: {name}")
@@ -53,6 +62,7 @@ def manage_collections():
 
     except Exception as e:
         print(f"❌ Error during deletion: {e}")
+
 
 if __name__ == "__main__":
     manage_collections()

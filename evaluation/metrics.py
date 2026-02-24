@@ -8,7 +8,7 @@ and retrieval performance.
 """
 
 import logging
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 
 from observability.logger import log_info, log_warning
 

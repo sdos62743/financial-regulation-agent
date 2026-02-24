@@ -1,6 +1,8 @@
 # tools/treasury.py
-from .base import BaseTool
 from observability.logger import log_info
+
+from .base import BaseTool
+
 
 class TreasuryTool(BaseTool):
     name = "treasury"

@@ -1,6 +1,8 @@
 # tools/market_data.py
-from .base import BaseTool
 from observability.logger import log_info
+
+from .base import BaseTool
+
 
 class MarketDataTool(BaseTool):
     name = "market_data"

@@ -1,12 +1,16 @@
-import re
 import os
+import re
 from datetime import datetime
 from io import BytesIO
-from urllib.parse import urljoin, urlparse, parse_qs, urlencode, urlunparse
+from urllib.parse import parse_qs, urlencode, urljoin, urlparse, urlunparse
+
 import scrapy
 from pypdf import PdfReader
+
 from observability.logger import log_error, log_info
+
 from ..items import RegcrawlerItem
+
 
 class SecEnforceSpider(scrapy.Spider):
     name = "sec_enforcement"
@@ -43,15 +47,15 @@ class SecEnforceSpider(scrapy.Spider):
     def parse_list(self, response):
         doc_type_prefix = response.meta["doc_type_prefix"]
         year = response.meta.get("year", "Unknown")
-        
+
         # 1. Handle Pagination robustly
         # Look for the "Next" link in the pagination nav
-        next_page_url = response.css('li.pager__item--next a::attr(href)').get()
+        next_page_url = response.css("li.pager__item--next a::attr(href)").get()
         if next_page_url:
             yield scrapy.Request(
                 url=response.urljoin(next_page_url),
                 callback=self.parse_list,
-                meta={"doc_type_prefix": doc_type_prefix, "year": year}
+                meta={"doc_type_prefix": doc_type_prefix, "year": year},
             )
 
         # 2. Parse table rows - Targeting the specific views-table for 2026 layout
@@ -91,8 +95,10 @@ class SecEnforceSpider(scrapy.Spider):
 
         # CRITICAL FIX: Determine type BEFORE calling .css()
         content_type = response.headers.get("Content-Type", b"").lower()
-        is_pdf = response.url.lower().endswith(".pdf") or b"application/pdf" in content_type
-        
+        is_pdf = (
+            response.url.lower().endswith(".pdf") or b"application/pdf" in content_type
+        )
+
         doc_type = response.meta.get("doc_type", "unknown")
         date = response.meta.get("date", "Unknown")
         title = "Untitled SEC Document"
@@ -101,15 +107,21 @@ class SecEnforceSpider(scrapy.Spider):
         if is_pdf:
             try:
                 pdf_reader = PdfReader(BytesIO(response.body))
-                content = "\n".join(page.extract_text() or "" for page in pdf_reader.pages).strip()
+                content = "\n".join(
+                    page.extract_text() or "" for page in pdf_reader.pages
+                ).strip()
                 title = response.url.split("/")[-1].replace(".pdf", "")
             except Exception as e:
                 log_error(f"SEC PDF Error: {response.url} - {e}")
                 return
         else:
             # HTML parsing is safe here
-            title = response.css("h1::text, h1.article-title::text").get(default="SEC Enforcement Action").strip()
-            
+            title = (
+                response.css("h1::text, h1.article-title::text")
+                .get(default="SEC Enforcement Action")
+                .strip()
+            )
+
             # Smart Date Fallback
             if date == "Unknown":
                 date_text = response.css(".article-date::text, p.date::text").get()
@@ -117,7 +129,9 @@ class SecEnforceSpider(scrapy.Spider):
                     date = date_text.strip()
 
             # Content extraction targeting main article body
-            paragraphs = response.css("article p::text, .article-content p::text, p::text").getall()
+            paragraphs = response.css(
+                "article p::text, .article-content p::text, p::text"
+            ).getall()
             content = "\n".join(p.strip() for p in paragraphs if p.strip())
 
             # Follow attached PDFs (Nested discovery)

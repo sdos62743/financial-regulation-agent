@@ -4,20 +4,21 @@ Production Metrics & Monitoring - Tier 1 Optimized
 Thread-safe Prometheus metrics for high-throughput async background tasks.
 """
 
-import time
 import logging
+import time
 from typing import Callable
 
 from fastapi import Request, Response
-from prometheus_client import Counter, Gauge, Histogram, make_asgi_app, REGISTRY
+from prometheus_client import REGISTRY, Counter, Gauge, Histogram, make_asgi_app
 
-from observability.logger import log_info, log_debug, log_error
+from observability.logger import log_debug, log_error, log_info
 
 logger = logging.getLogger(__name__)
 
 # =============================================================================
 # Registry-Safe Metric Helper
 # =============================================================================
+
 
 def get_or_create_metric(metric_class, name, documentation, labelnames=()):
     """
@@ -26,6 +27,7 @@ def get_or_create_metric(metric_class, name, documentation, labelnames=()):
     if name in REGISTRY._names_to_collectors:
         return REGISTRY._names_to_collectors[name]
     return metric_class(name, documentation, labelnames=labelnames)
+
 
 # =============================================================================
 # Prometheus Metrics
@@ -59,9 +61,10 @@ ERROR_COUNT = get_or_create_metric(
 # High-Performance Recording Helpers
 # =============================================================================
 
+
 def record_token_usage(model: str, component: str, token_count: int):
     """
-    Records token usage. 
+    Records token usage.
     Matches the signature used in graph/nodes/ to prevent background task crashes.
     """
     try:
@@ -69,14 +72,15 @@ def record_token_usage(model: str, component: str, token_count: int):
         m = model or "unknown_model"
         c = component or "unknown_node"
         t = token_count if isinstance(token_count, (int, float)) else 0
-        
+
         TOKEN_USAGE.labels(model=m, component=c).inc(t)
-        
+
         # PERF: Only log at debug level to keep the event loop fast
         log_debug(f"📊 [Metrics] {c} used {t} tokens ({m})")
     except Exception as e:
         # Fail silently in metrics to ensure the main Agent logic never stops
         pass
+
 
 def record_evaluation_score(overall_score: float, query_type: str = "general"):
     """Records the latest evaluation score."""
@@ -87,6 +91,7 @@ def record_evaluation_score(overall_score: float, query_type: str = "general"):
     except Exception:
         pass
 
+
 def record_hallucination_rate(rate: float):
     """Records hallucination check results."""
     try:
@@ -94,9 +99,11 @@ def record_hallucination_rate(rate: float):
     except Exception:
         pass
 
+
 # =============================================================================
 # Middleware
 # =============================================================================
+
 
 def observe_request_middleware(app):
     @app.middleware("http")
@@ -118,6 +125,7 @@ def observe_request_middleware(app):
         finally:
             latency = time.perf_counter() - start_time
             REQUEST_LATENCY.labels(endpoint=endpoint).observe(latency)
+
 
 # Prometheus metrics endpoint
 metrics_app = make_asgi_app()

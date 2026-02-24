@@ -7,7 +7,7 @@ All nodes read from and write to this state.
 """
 
 import operator
-from typing import Any, Dict, List, TypedDict, Annotated
+from typing import Annotated, Any, Dict, List, TypedDict
 
 
 class AgentState(TypedDict):
@@ -41,7 +41,7 @@ class AgentState(TypedDict):
     # ===================================================================================
 
     # Retrieval & Tool Results
-    # Using Annotated + operator.add ensures that if multiple nodes 
+    # Using Annotated + operator.add ensures that if multiple nodes
     # find documents or tool results, they are all preserved in a list.
     retrieved_docs: Annotated[List[Dict[str, Any]], operator.add]
     tool_outputs: Annotated[List[Dict[str, Any]], operator.add]

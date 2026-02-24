@@ -9,9 +9,10 @@ Tests cover:
 - Error handling and fallbacks
 """
 
-import pytest
 import asyncio
 from unittest.mock import AsyncMock, patch
+
+import pytest
 
 from graph.builder import app
 from graph.state import AgentState
@@ -28,7 +29,7 @@ def sample_state():
         tool_outputs=[],
         synthesized_response="",
         validation_result=False,
-        final_output=""
+        final_output="",
     )
 
 
@@ -48,12 +49,16 @@ async def test_full_graph_regulatory_lookup(sample_state):
 @pytest.mark.asyncio
 async def test_full_graph_calculation(sample_state):
     """Test complete flow for calculation intent"""
-    sample_state["query"] = "What is the current Fed Funds Rate and how does it compare to last year?"
+    sample_state["query"] = (
+        "What is the current Fed Funds Rate and how does it compare to last year?"
+    )
 
     result = await app.ainvoke(sample_state)
 
     assert "tool_outputs" in result
-    assert any("calculation_result" in output for output in result.get("tool_outputs", []))
+    assert any(
+        "calculation_result" in output for output in result.get("tool_outputs", [])
+    )
 
 
 @pytest.mark.asyncio
@@ -63,6 +68,7 @@ async def test_routing_calculation_intent(sample_state):
 
     # We can test routing directly via the router node
     from graph.nodes.router import route_query
+
     next_node = route_query(sample_state)
 
     assert next_node == "calculation"
@@ -74,6 +80,7 @@ async def test_routing_regulatory_lookup(sample_state):
     sample_state["intent"] = "regulatory_lookup"
 
     from graph.nodes.router import route_query
+
     next_node = route_query(sample_state)
 
     assert next_node == "rag"
@@ -86,6 +93,7 @@ async def test_validation_loop(sample_state):
     sample_state["iterations"] = 0  # We'll add this temporarily for testing
 
     from graph.builder import decide_end
+
     decision = decide_end(sample_state)
 
     assert decision == "planner"
@@ -98,6 +106,7 @@ async def test_max_iterations_prevents_infinite_loop(sample_state):
     sample_state["iterations"] = 4  # Simulate reaching max
 
     from graph.builder import decide_end
+
     decision = decide_end(sample_state)
 
     assert decision == "END"  # Should force end after max iterations
@@ -111,6 +120,7 @@ async def test_classify_with_mock(mock_ainvoke, sample_state):
     mock_ainvoke.return_value.content = "regulatory_lookup"
 
     from graph.nodes.classify import classify_intent
+
     result = await classify_intent(sample_state)
 
     assert result["intent"] == "regulatory_lookup"

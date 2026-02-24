@@ -2,12 +2,12 @@
 """
 Retrieval Quality Evaluator
 
-This module evaluates how well the retrieved documents match the user's query 
+This module evaluates how well the retrieved documents match the user's query
 and any available ground truth context using standard information retrieval metrics.
 """
 
 import logging
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 
 from langchain_core.documents import Document
 
@@ -17,9 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 def evaluate_retrieval(
-    retrieved_docs: List[Document],
-    ground_truth: str | None = None,
-    k: int = 10
+    retrieved_docs: List[Document], ground_truth: str | None = None, k: int = 10
 ) -> Dict[str, float]:
     """
     Evaluate retrieval quality using standard information retrieval metrics.
@@ -39,7 +37,7 @@ def evaluate_retrieval(
             "precision_at_k": 0.0,
             "recall_at_k": 0.0,
             "num_retrieved": 0,
-            "k": k
+            "k": k,
         }
 
     # Limit evaluation to top-k documents
@@ -52,7 +50,9 @@ def evaluate_retrieval(
         relevance_scores = []
         for doc in top_k_docs:
             doc_text = doc.page_content.lower()
-            overlap = len(gt_words.intersection(set(doc_text.split()))) / max(len(gt_words), 1)
+            overlap = len(gt_words.intersection(set(doc_text.split()))) / max(
+                len(gt_words), 1
+            )
             relevance_scores.append(overlap)
     else:
         # No ground truth → assume all retrieved docs are relevant (optimistic baseline)
@@ -67,14 +67,16 @@ def evaluate_retrieval(
     precision_at_k = sum(relevance_scores) / k if k > 0 else 0.0
 
     # Recall@K (simplified version based on available data)
-    recall_at_k = sum(relevance_scores) / len(relevance_scores) if relevance_scores else 0.0
+    recall_at_k = (
+        sum(relevance_scores) / len(relevance_scores) if relevance_scores else 0.0
+    )
 
     metrics = {
         "ndcg": round(ndcg, 4),
         "precision_at_k": round(precision_at_k, 4),
         "recall_at_k": round(recall_at_k, 4),
         "num_retrieved": num_retrieved,
-        "k": k
+        "k": k,
     }
 
     log_info(

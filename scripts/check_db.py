@@ -1,6 +1,7 @@
 """
 Chroma health check: total count, peek last 5 metadata entries, similarity search test.
 """
+
 import os
 import sys
 from pathlib import Path
@@ -10,9 +11,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
 
 from dotenv import load_dotenv
+
 load_dotenv(BASE_DIR / ".env")
 import chromadb
+
 from retrieval.vector_store import get_vector_store
+
 
 def diagnostic():
     # 1. Check total count
@@ -29,7 +33,7 @@ def diagnostic():
     if count > 0:
         last_docs = collection.peek(limit=5)
         print("\n👀 Last 5 Metadata entries:")
-        for meta in last_docs['metadatas']:
+        for meta in last_docs["metadatas"]:
             print(f" - {meta}")
 
     # 3. Test a direct retrieval (bypass the graph)
@@ -37,6 +41,7 @@ def diagnostic():
     vs = get_vector_store()
     results = vs.similarity_search("What is Basel?", k=2)
     print(f" ✅ Found {len(results)} results via similarity search.")
+
 
 if __name__ == "__main__":
     diagnostic()

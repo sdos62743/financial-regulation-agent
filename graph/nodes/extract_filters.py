@@ -2,27 +2,29 @@ import asyncio
 import json
 from typing import Any, Dict
 
-from observability.logger import log_error, log_info, log_warning
-from observability.metrics import record_token_usage
+from app.llm_config import get_llm
 from graph.prompts.loader import load_prompt
 from graph.state import AgentState
-from app.llm_config import get_llm
+from observability.logger import log_error, log_info, log_warning
+from observability.metrics import record_token_usage
 
 # 🔹 Tier 1: General Domain Keywords
 # Add any regulators you support here
 SUPPORTED_REGULATORS = ["BASEL", "SEC", "CFTC", "FED", "FINCEN", "FCA", "FDIC"]
 
+
 def _heuristic_filter_extraction(query: str) -> Dict[str, Any]:
     """General keyword-based extraction as a safety net."""
     q = query.upper()
     found_regs = [reg for reg in SUPPORTED_REGULATORS if reg in q]
-    
+
     return {
         "regulators": found_regs if found_regs else None,
-        "year": None, # Hard to parse reliably with regex
+        "year": None,  # Hard to parse reliably with regex
         "doc_types": None,
-        "jurisdiction": "US" if " US " in q or "USA" in q else None
+        "jurisdiction": "US" if " US " in q or "USA" in q else None,
     }
+
 
 async def extract_filters(state: AgentState) -> Dict[str, Any]:
     query = state.get("query", "").strip()
@@ -41,7 +43,7 @@ async def extract_filters(state: AgentState) -> Dict[str, Any]:
             # Strip potential markdown backticks
             if "```json" in result_text:
                 result_text = result_text.split("```json")[1].split("```")[0].strip()
-            
+
             filters = json.loads(result_text)
         except json.JSONDecodeError:
             log_warning("JSON Parse failed, using heuristics.")
@@ -64,6 +66,7 @@ async def extract_filters(state: AgentState) -> Dict[str, Any]:
         log_error(f"❌ Filter Extraction API Error: {e}")
         # Return general heuristic instead of empty dict
         return {"filters": _heuristic_filter_extraction(query)}
+
 
 async def _log_filter_metrics(llm, response):
     try:

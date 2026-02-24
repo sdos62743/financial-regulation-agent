@@ -4,9 +4,10 @@ Embedding Service - Tier 1 2026 Optimized (LangChain 1.x Compatible)
 """
 
 from __future__ import annotations
-import os
-import json
+
 import hashlib
+import json
+import os
 from typing import TYPE_CHECKING, List
 
 from app.config import Config
@@ -87,9 +88,7 @@ def get_embeddings(cache: bool = True) -> Embeddings:
             namespace=namespace,
         )
 
-        log_info(
-            f"✅ Embedding cache active: {cache_root} | Namespace: {namespace}"
-        )
+        log_info(f"✅ Embedding cache active: {cache_root} | Namespace: {namespace}")
 
         return cached_embeddings
 

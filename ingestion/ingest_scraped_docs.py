@@ -4,8 +4,8 @@ Production-ready Ingestion Pipeline
 Loads scraped JSON files → chunks → embeds → stores in Chroma.
 """
 
-import sys
 import os
+import sys
 from pathlib import Path
 
 # === CRITICAL: Add project root to PYTHONPATH ===
@@ -15,17 +15,20 @@ if str(PROJECT_ROOT) not in sys.path:
 
 # Load .env before any imports that need API keys
 from dotenv import load_dotenv
+
 load_dotenv(PROJECT_ROOT / ".env")
 
-import json
 import argparse
+import json
 from datetime import datetime
 from typing import List
 
 from langchain_core.documents import Document
+
+from observability.logger import log_error, log_info, log_warning
 from retrieval.chunking import get_text_splitter
 from retrieval.vector_store import add_documents, clear_collection, get_collection_count
-from observability.logger import log_error, log_info, log_warning
+
 
 def load_scraped_files(scraped_dir: Path):
     """Load all JSON files from scraped directory"""
@@ -36,6 +39,7 @@ def load_scraped_files(scraped_dir: Path):
     files = list(scraped_dir.glob("*.json"))
     log_info(f"Found {len(files)} scraped JSON files")
     return sorted(files)
+
 
 def json_to_documents(json_path: Path) -> List[Document]:
     """Convert scraped JSON into LangChain Documents"""
@@ -62,7 +66,8 @@ def json_to_documents(json_path: Path) -> List[Document]:
                 "doc_id": str(item.get("doc_id") or ""),
                 "speaker": item.get("speaker"),
                 "spider_name": item.get("spider_name"),
-                "ingest_timestamp": item.get("ingest_timestamp") or datetime.utcnow().isoformat(),
+                "ingest_timestamp": item.get("ingest_timestamp")
+                or datetime.utcnow().isoformat(),
                 "source_file": json_path.name,
             }
             metadata = {k: v for k, v in metadata.items() if v is not None}
@@ -74,12 +79,21 @@ def json_to_documents(json_path: Path) -> List[Document]:
         log_error(f"Failed to parse {json_path.name}: {e}")
         return []
 
+
 def main():
-    parser = argparse.ArgumentParser(description="Financial Regulation Ingestion Pipeline")
-    parser.add_argument("--limit", type=int, default=None, help="Max documents to ingest")
-    parser.add_argument("--clear", action="store_true", help="Clear vector DB before ingesting")
+    parser = argparse.ArgumentParser(
+        description="Financial Regulation Ingestion Pipeline"
+    )
+    parser.add_argument(
+        "--limit", type=int, default=None, help="Max documents to ingest"
+    )
+    parser.add_argument(
+        "--clear", action="store_true", help="Clear vector DB before ingesting"
+    )
     parser.add_argument("--mock", action="store_true", help="Use mock data")
-    parser.add_argument("--batch-size", type=int, default=100, help="Batch size for vector DB insertion")
+    parser.add_argument(
+        "--batch-size", type=int, default=100, help="Batch size for vector DB insertion"
+    )
     args = parser.parse_args()
 
     # 1. Database Maintenance
@@ -105,11 +119,11 @@ def main():
         docs = json_to_documents(json_file)
         if not docs:
             continue
-            
+
         chunks = splitter.split_documents(docs)
-        
+
         if args.limit and total_chunks_processed + len(chunks) > args.limit:
-            chunks = chunks[:args.limit - total_chunks_processed]
+            chunks = chunks[: args.limit - total_chunks_processed]
 
         if not chunks:
             continue
@@ -128,6 +142,7 @@ def main():
             break
 
     log_info(f"✅ Ingestion completed. Total chunks in DB: {get_collection_count()}")
+
 
 if __name__ == "__main__":
     main()

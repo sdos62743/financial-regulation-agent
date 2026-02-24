@@ -47,6 +47,7 @@ logs/
 data/scraped/
 data/basel_pdfs/
 data/chroma_db/
+data/chroma.sqlite3
 data/cache/
 data/mock/
 

@@ -9,13 +9,15 @@ Tests cover:
 - Integration with ToolRegistry
 """
 
-import pytest
 import asyncio
-from unittest.mock import patch, AsyncMock
+from unittest.mock import AsyncMock, patch
 
+import pytest
+
+from tools.fed_balance_sheet import FedBalanceSheetTool
+from tools.market_data import MarketDataTool
 from tools.registry import ToolRegistry
 from tools.treasury import TreasuryTool
-from tools.fed_balance_sheet import FedBalanceSheetTool
 
 
 @pytest.fixture
@@ -39,7 +41,7 @@ def test_tool_registration(clean_registry):
 def test_get_tool(clean_registry):
     """Test retrieving a registered tool"""
     ToolRegistry.register(TreasuryTool)
-    
+
     tool = ToolRegistry.get_tool("treasury")
     assert tool is not None
     assert tool.name == "treasury"
@@ -56,16 +58,16 @@ def test_get_nonexistent_tool(clean_registry):
 async def test_treasury_tool_execution(clean_registry):
     """Test actual tool execution with mocked API"""
     ToolRegistry.register(TreasuryTool)
-    
+
     # Mock the API call inside the tool
-    with patch('tools.treasury.requests.get') as mock_get:
+    with patch("tools.treasury.requests.get") as mock_get:
         mock_get.return_value.status_code = 200
         mock_get.return_value.json.return_value = {
             "data": [{"avg_interest_rate_amt": "4.5"}]
         }
 
         result = await ToolRegistry.invoke("treasury", endpoint="avg_interest_rates")
-        
+
         assert result is not None
         assert "data" in result
 
@@ -74,8 +76,8 @@ async def test_treasury_tool_execution(clean_registry):
 async def test_tool_execution_failure(clean_registry):
     """Test graceful error handling when tool fails"""
     ToolRegistry.register(TreasuryTool)
-    
-    with patch('tools.treasury.requests.get') as mock_get:
+
+    with patch("tools.treasury.requests.get") as mock_get:
         mock_get.side_effect = Exception("API timeout")
 
         with pytest.raises(Exception):
@@ -89,7 +91,7 @@ def test_list_tools(clean_registry):
     ToolRegistry.register(MarketDataTool)
 
     tools = ToolRegistry.list_tools()
-    
+
     assert len(tools) == 3
     assert set(tools) == {"treasury", "fed_balance_sheet", "market_data"}
 
@@ -98,14 +100,13 @@ def test_list_tools(clean_registry):
 async def test_call_tools_node_integration(clean_registry):
     """Test integration with call_tools node in graph"""
     ToolRegistry.register(TreasuryTool)
-    
+
     # Mock plan that contains tool call
-    state = {
-        "plan": ["Step 1", "tool: treasury", "Step 3"]
-    }
-    
-    from graph.nodes.calculation import call_tools   # or wherever you placed it
+    state = {"plan": ["Step 1", "tool: treasury", "Step 3"]}
+
+    from graph.nodes.calculation import call_tools  # or wherever you placed it
+
     result = await call_tools(state)
-    
+
     assert "tool_outputs" in result
     assert len(result["tool_outputs"]) >= 0

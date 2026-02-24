@@ -5,8 +5,9 @@ Directs the graph flow with zero LLM overhead (pure Python logic).
 Now aware of both intent and extracted filters.
 """
 
-from observability.logger import log_info, log_error
 from graph.state import AgentState
+from observability.logger import log_error, log_info
+
 
 def route_query(state: AgentState) -> str:
     """
@@ -39,14 +40,20 @@ def route_query(state: AgentState) -> str:
 
     # 2. NEW: Smart filter-based boost
     has_strong_filters = bool(
-        filters.get("regulators") or 
-        filters.get("year") or 
-        filters.get("doc_types") or 
-        filters.get("jurisdiction")
+        filters.get("regulators")
+        or filters.get("year")
+        or filters.get("doc_types")
+        or filters.get("jurisdiction")
     )
 
     # 3. Regulatory / Research Path
-    regulatory_keywords = ["regulatory_lookup", "reasoning", "lookup", "research", "rag"]
+    regulatory_keywords = [
+        "regulatory_lookup",
+        "reasoning",
+        "lookup",
+        "research",
+        "rag",
+    ]
     if any(k in intent for k in regulatory_keywords) or has_strong_filters:
         log_info("➡️ Routed to: rag (Parallel Retrieval + Tools)")
         return "rag"

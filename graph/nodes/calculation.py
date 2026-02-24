@@ -6,11 +6,13 @@ Performs numerical analysis with background metrics and efficient state updates.
 
 import asyncio
 from typing import Any, Dict, List
-from observability.logger import log_error, log_info
-from observability.metrics import record_token_usage
+
+from app.llm_config import get_llm
 from graph.prompts.loader import load_prompt
 from graph.state import AgentState
-from app.llm_config import get_llm
+from observability.logger import log_error, log_info
+from observability.metrics import record_token_usage
+
 
 async def perform_calculation(state: AgentState) -> Dict[str, Any]:
     """
@@ -38,7 +40,9 @@ async def perform_calculation(state: AgentState) -> Dict[str, Any]:
             date_str = meta.get("date", "Unknown Date")
             data_parts.append(f"Doc {i} [{date_str}]: {content[:800]}")
 
-    data_str = "\n\n".join(data_parts) if data_parts else "No specific context available."
+    data_str = (
+        "\n\n".join(data_parts) if data_parts else "No specific context available."
+    )
 
     try:
         llm = get_llm()
@@ -74,7 +78,7 @@ async def _log_calc_metrics(llm, response):
         metadata = getattr(response, "response_metadata", {})
         usage = metadata.get("usage_metadata") or metadata.get("token_usage") or {}
         token_count = usage.get("total_tokens", 0)
-        
+
         record_token_usage(model_name, "calculation_node", token_count)
         log_info(f"✅ [Calculation Node] Finished | Tokens: {token_count}")
     except Exception:

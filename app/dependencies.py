@@ -20,7 +20,9 @@ from observability.tracer import RequestTracer
 # Schema Validation
 # ----------------------------------------------------------------------
 class QueryRequest(BaseModel):
-    query: str = Field(..., min_length=3, description="The user's natural language query")
+    query: str = Field(
+        ..., min_length=3, description="The user's natural language query"
+    )
 
 
 # ----------------------------------------------------------------------
@@ -32,10 +34,10 @@ async def get_request_context(request: Request) -> str:
     Ensures that every log from this request is correlated.
     """
     request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
-    
+
     # Set the global context for this thread/task
     RequestTracer.set_request_id(request_id)
-    
+
     log_info(f"📥 [API] Request started | Path: {request.url.path} | ID: {request_id}")
     return request_id
 
@@ -45,26 +47,26 @@ async def get_request_context(request: Request) -> str:
 # ----------------------------------------------------------------------
 def validate_api_key(
     request: Request,
-    x_api_key: Annotated[Optional[str], Header(alias="X-API-Key")] = None
+    x_api_key: Annotated[Optional[str], Header(alias="X-API-Key")] = None,
 ) -> str:
     """
     Validates API key using centralized Config.
     """
     # Fallback to env check if Config isn't populated
-    expected_key = os.getenv("API_KEY") 
+    expected_key = os.getenv("API_KEY")
 
     if not expected_key:
         log_warning("⚠️ API_KEY not configured on server.")
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-            detail="Server configuration error"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Server configuration error",
         )
 
     if not x_api_key or x_api_key != expected_key:
         log_warning(f"🚫 Unauthorized access attempt from: {request.client.host}")
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, 
-            detail="Invalid or missing API key"
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing API key",
         )
 
     return x_api_key

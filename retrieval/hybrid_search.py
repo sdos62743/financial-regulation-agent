@@ -5,17 +5,18 @@ Uses Manual RRF and Cohere Reranking.
 Fixes ChromaDB multi-filter syntax using $and operator.
 """
 
-import os
 import asyncio
-from typing import Any, Dict, List, Optional
+import os
 from collections import defaultdict
+from typing import Any, Dict, List, Optional
 
-from langchain_core.documents import Document
-from langchain_community.retrievers import BM25Retriever
 from langchain_cohere import CohereRerank
+from langchain_community.retrievers import BM25Retriever
+from langchain_core.documents import Document
 
-from observability.logger import log_info, log_warning, log_error
 from app.llm_config import get_embeddings
+from observability.logger import log_error, log_info, log_warning
+
 from .vector_store import get_vector_store
 
 DEFAULT_TOP_K = int(os.getenv("HYBRID_TOP_K", 8))
@@ -23,18 +24,21 @@ DEFAULT_BM25_WEIGHT = float(os.getenv("HYBRID_BM25_WEIGHT", 0.4))
 DEFAULT_VECTOR_WEIGHT = float(os.getenv("HYBRID_VECTOR_WEIGHT", 0.6))
 RRF_K = 60
 
+
 def _normalize_list(val: Any) -> Optional[List[Any]]:
     """Ensures input for $in operator is always a non-empty list."""
-    if val is None: return None
+    if val is None:
+        return None
     if isinstance(val, list):
         return val if len(val) > 0 else None
     return [val]
 
+
 async def apply_rrf(
-    vector_results: List[Document], 
-    bm25_results: List[Document], 
-    weights: List[float], 
-    limit: int
+    vector_results: List[Document],
+    bm25_results: List[Document],
+    weights: List[float],
+    limit: int,
 ) -> List[Document]:
     rrf_score: Dict[str, float] = defaultdict(float)
     doc_map: Dict[str, Document] = {}
@@ -49,6 +53,7 @@ async def apply_rrf(
 
     sorted_docs = sorted(rrf_score.items(), key=lambda x: x[1], reverse=True)
     return [doc_map[doc_id] for doc_id, _ in sorted_docs[:limit]]
+
 
 async def hybrid_search(
     query: str,
@@ -70,15 +75,15 @@ async def hybrid_search(
         # 1. Build Filtered Search Args with Chroma Logical Operators
         search_kwargs = {"k": top_k * 4}
         chroma_filter = {}
-        
+
         if filters:
             conditions = []
-            
+
             # Regulator Filter
             regs = _normalize_list(filters.get("regulators"))
             if regs:
                 conditions.append({"regulator": {"$in": regs}})
-            
+
             # Doc Type Filter
             dts = _normalize_list(filters.get("doc_types"))
             if dts:
@@ -91,17 +96,17 @@ async def hybrid_search(
                     conditions.append({"year": int(year)})
                 except (ValueError, TypeError):
                     log_warning(f"⚠️ Invalid year filter: {year}")
-            
+
             # Jurisdiction Filter
             if filters.get("jurisdiction"):
                 conditions.append({"jurisdiction": filters["jurisdiction"]})
-            
+
             # 🔹 FIXED: Chroma requires $and for multiple conditions
             if len(conditions) > 1:
                 chroma_filter = {"$and": conditions}
             elif len(conditions) == 1:
                 chroma_filter = conditions[0]
-            
+
             if chroma_filter:
                 search_kwargs["filter"] = chroma_filter
                 log_info(f"🎯 Chroma Filter: {chroma_filter}")
@@ -122,20 +127,23 @@ async def hybrid_search(
 
         all_docs = [
             Document(page_content=c, metadata=m or {})
-            for c, m in zip(filtered_data["documents"], filtered_data.get("metadatas", []))
+            for c, m in zip(
+                filtered_data["documents"], filtered_data.get("metadatas", [])
+            )
         ]
-        
+
         # 4. Perform Parallel Retrieval
         bm25_retriever = BM25Retriever.from_documents(documents=all_docs)
         bm25_retriever.k = top_k * 4
 
         bm25_results, vector_results = await asyncio.gather(
-            bm25_retriever.ainvoke(query),
-            vector_retriever.ainvoke(query)
+            bm25_retriever.ainvoke(query), vector_retriever.ainvoke(query)
         )
 
         # 5. Reciprocal Rank Fusion
-        fused_results = await apply_rrf(vector_results, bm25_results, [bw, vw], top_k * 4)
+        fused_results = await apply_rrf(
+            vector_results, bm25_results, [bw, vw], top_k * 4
+        )
 
         # 6. Cohere Reranking
         cohere_key = os.getenv("COHERE_API_KEY")

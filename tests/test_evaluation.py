@@ -10,22 +10,27 @@ Tests cover:
 - Overall metrics calculation
 """
 
-import pytest
 import asyncio
-from unittest.mock import patch, AsyncMock
+from unittest.mock import AsyncMock, patch
 
+import pytest
+from langchain_core.documents import Document
+
+from evaluation.answer_eval import evaluate_answer_quality
 from evaluation.evaluator import AgentEvaluator
 from evaluation.hallucination_detector import detect_hallucinations
-from evaluation.answer_eval import evaluate_answer_quality
 from evaluation.metrics import calculate_metrics
-from langchain_core.documents import Document
 
 
 @pytest.fixture
 def sample_documents():
     return [
-        Document(page_content="The Federal Reserve raised the federal funds rate by 25 basis points."),
-        Document(page_content="Inflation has moderated but remains above the 2% target."),
+        Document(
+            page_content="The Federal Reserve raised the federal funds rate by 25 basis points."
+        ),
+        Document(
+            page_content="Inflation has moderated but remains above the 2% target."
+        ),
     ]
 
 
@@ -38,14 +43,18 @@ def sample_evaluator():
 @pytest.mark.asyncio
 async def test_hallucination_detection():
     """Test hallucination detector with and without hallucination"""
-    good_response = "The FOMC raised rates by 25 bps as stated in the June 2023 statement."
+    good_response = (
+        "The FOMC raised rates by 25 bps as stated in the June 2023 statement."
+    )
     bad_response = "The FOMC cut rates by 50 bps in June 2023."
 
     score_good = await detect_hallucinations(good_response, sample_documents())
     score_bad = await detect_hallucinations(bad_response, sample_documents())
 
-    assert 0.0 <= score_good <= 0.3   # Should have low hallucination score
-    assert score_bad > score_good     # Bad response should score higher (more hallucinated)
+    assert 0.0 <= score_good <= 0.3  # Should have low hallucination score
+    assert (
+        score_bad > score_good
+    )  # Bad response should score higher (more hallucinated)
 
 
 @pytest.mark.asyncio
@@ -70,7 +79,7 @@ def test_metrics_calculation():
                 "hallucination_score": 0.1,
                 "answer_quality": {"score": 0.85},
                 "retrieval_metrics": {"ndcg": 0.92},
-                "validation_result": True
+                "validation_result": True,
             }
         },
         {
@@ -78,9 +87,9 @@ def test_metrics_calculation():
                 "hallucination_score": 0.6,
                 "answer_quality": {"score": 0.45},
                 "retrieval_metrics": {"ndcg": 0.65},
-                "validation_result": False
+                "validation_result": False,
             }
-        }
+        },
     ]
 
     metrics = calculate_metrics(sample_results)
@@ -98,7 +107,7 @@ async def test_evaluator_single_query(sample_evaluator):
         query="What is the current Fed Funds Rate?",
         generated_answer="The current Fed Funds Rate is 5.25%.",
         retrieved_docs=sample_documents(),
-        ground_truth="The Fed Funds Rate is 5.25% as of July 2023."
+        ground_truth="The Fed Funds Rate is 5.25% as of July 2023.",
     )
 
     assert "overall_score" in result
@@ -113,7 +122,7 @@ async def test_benchmark_run(sample_evaluator):
     mock_agent = AsyncMock()
     mock_agent.ainvoke.return_value = {
         "synthesized_response": "Test answer",
-        "retrieved_docs": sample_documents()
+        "retrieved_docs": sample_documents(),
     }
 
     result = await sample_evaluator.run_benchmark(mock_agent, limit=3)

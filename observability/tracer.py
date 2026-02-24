@@ -12,12 +12,14 @@ from typing import Optional
 # Using "unknown" as default ensures no log line ever has a null ID
 request_id_var: ContextVar[str] = ContextVar("request_id", default="unknown")
 
+
 def get_current_request_id() -> str:
     """
     Standalone accessor for the current request ID.
     Used by logger.py and nodes for high-speed lookups.
     """
     return request_id_var.get()
+
 
 def set_request_id(request_id: Optional[str] = None) -> Token[str]:
     """
@@ -27,6 +29,7 @@ def set_request_id(request_id: Optional[str] = None) -> Token[str]:
     if not request_id:
         request_id = str(uuid.uuid4())
     return request_id_var.set(request_id)
+
 
 class RequestTracer:
     """

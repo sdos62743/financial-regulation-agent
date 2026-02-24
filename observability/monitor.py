@@ -5,15 +5,18 @@ Non-blocking resource tracking and unified metrics aggregation.
 """
 
 import logging
+
 import psutil
-from prometheus_client import Gauge, REGISTRY
-from observability.logger import log_info, log_warning, log_error, log_debug
+from prometheus_client import REGISTRY, Gauge
+
+from observability.logger import log_debug, log_error, log_info, log_warning
 
 logger = logging.getLogger(__name__)
 
 # =============================================================================
 # Registry-Safe Metric Helper
 # =============================================================================
+
 
 def get_or_create_gauge(name, documentation):
     """
@@ -23,20 +26,32 @@ def get_or_create_gauge(name, documentation):
         return REGISTRY._names_to_collectors[name]
     return Gauge(name, documentation)
 
+
 # =============================================================================
 # Prometheus Gauges
 # =============================================================================
 
 CPU_USAGE = get_or_create_gauge("system_cpu_usage_percent", "Current CPU usage")
-MEMORY_USAGE = get_or_create_gauge("system_memory_usage_percent", "Current memory usage")
+MEMORY_USAGE = get_or_create_gauge(
+    "system_memory_usage_percent", "Current memory usage"
+)
 DISK_USAGE = get_or_create_gauge("system_disk_usage_percent", "Current disk usage")
 
-ACTIVE_REQUESTS = get_or_create_gauge("agent_active_requests", "Currently active requests")
-AVG_RESPONSE_TIME = get_or_create_gauge("agent_avg_response_time_seconds", "Avg response time")
+ACTIVE_REQUESTS = get_or_create_gauge(
+    "agent_active_requests", "Currently active requests"
+)
+AVG_RESPONSE_TIME = get_or_create_gauge(
+    "agent_avg_response_time_seconds", "Avg response time"
+)
 
 # Unified with validation_node and metrics.py
-HALLUCINATION_RATE = get_or_create_gauge("agent_hallucination_rate", "Current hallucination rate")
-LATEST_OVERALL_SCORE = get_or_create_gauge("agent_evaluation_score", "Latest eval score")
+HALLUCINATION_RATE = get_or_create_gauge(
+    "agent_hallucination_rate", "Current hallucination rate"
+)
+LATEST_OVERALL_SCORE = get_or_create_gauge(
+    "agent_evaluation_score", "Latest eval score"
+)
+
 
 class SystemMonitor:
     """Central monitoring utilities for Tier 1 performance."""
@@ -95,15 +110,14 @@ class SystemMonitor:
         Health check utility for Kubernetes/Load Balancer probes.
         """
         metrics = SystemMonitor.collect_system_metrics()
-        
+
         # Simple threshold logic for automated scaling
-        is_pressed = metrics.get("cpu_percent", 0) > 85 or metrics.get("memory_percent", 0) > 85
+        is_pressed = (
+            metrics.get("cpu_percent", 0) > 85 or metrics.get("memory_percent", 0) > 85
+        )
         status = "degraded" if is_pressed else "healthy"
-        
+
         if is_pressed:
             log_warning("⚠️ System health degraded: High resource pressure.")
 
-        return {
-            "status": status,
-            **metrics
-        }
+        return {"status": status, **metrics}

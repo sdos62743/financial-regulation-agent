@@ -1,12 +1,14 @@
 # ingestion/regcrawler/regcrawler/spiders/cftc_enforcer.py
 
+import re
 from datetime import datetime
 from io import BytesIO
-import re
+
 import scrapy
 from pypdf import PdfReader
 
 from observability.logger import log_error, log_info
+
 from ..items import RegcrawlerItem
 
 
@@ -14,6 +16,7 @@ class CftcEnforceSpider(scrapy.Spider):
     """
     CFTC Enforcement Actions Spider - Updated for 2026 layout
     """
+
     name = "cftc_enforcer"
     allowed_domains = ["cftc.gov"]
 
@@ -54,16 +57,22 @@ class CftcEnforceSpider(scrapy.Spider):
                 return
 
             # Get main press release link
-            main_link = row.css('a[href*="/PressRoom/PressReleases/"]::attr(href), a[href*="/enforcement/"]::attr(href)').get()
+            main_link = row.css(
+                'a[href*="/PressRoom/PressReleases/"]::attr(href), a[href*="/enforcement/"]::attr(href)'
+            ).get()
 
             # Get date
-            date = row.css('span.date, .field--name-field-date ::text, strong::text').get(default="").strip()
+            date = (
+                row.css("span.date, .field--name-field-date ::text, strong::text")
+                .get(default="")
+                .strip()
+            )
 
             if main_link:
                 yield scrapy.Request(
                     url=response.urljoin(main_link),
                     callback=self.parse_document,
-                    meta={"doc_type": "enforcement_release", "date": date}
+                    meta={"doc_type": "enforcement_release", "date": date},
                 )
 
             # Get PDF links (Consent Orders, Complaints, etc.)
@@ -74,16 +83,18 @@ class CftcEnforceSpider(scrapy.Spider):
                 yield scrapy.Request(
                     url=response.urljoin(pdf_link),
                     callback=self.parse_document,
-                    meta={"doc_type": "enforcement_document", "date": date}
+                    meta={"doc_type": "enforcement_document", "date": date},
                 )
 
         # Pagination
-        next_page = response.css('a[rel="next"]::attr(href), li.pager__item--next a::attr(href)').get()
+        next_page = response.css(
+            'a[rel="next"]::attr(href), li.pager__item--next a::attr(href)'
+        ).get()
         if next_page:
             yield scrapy.Request(
                 url=response.urljoin(next_page),
                 callback=self.parse_list,
-                meta={"year": year}
+                meta={"year": year},
             )
 
     def parse_document(self, response):
@@ -92,7 +103,9 @@ class CftcEnforceSpider(scrapy.Spider):
             return
 
         content_type = response.headers.get("Content-Type", b"").decode().lower()
-        is_pdf = response.url.lower().endswith(".pdf") or "application/pdf" in content_type
+        is_pdf = (
+            response.url.lower().endswith(".pdf") or "application/pdf" in content_type
+        )
 
         doc_type = response.meta.get("doc_type", "unknown")
         date = response.meta.get("date", "Unknown")
@@ -102,17 +115,25 @@ class CftcEnforceSpider(scrapy.Spider):
         if is_pdf:
             try:
                 reader = PdfReader(BytesIO(response.body))
-                content = "\n".join(page.extract_text() or "" for page in reader.pages).strip()
+                content = "\n".join(
+                    page.extract_text() or "" for page in reader.pages
+                ).strip()
                 title = response.url.split("/")[-1].replace(".pdf", "")
             except Exception as e:
                 log_error(f"PDF extraction failed for {response.url}: {e}")
                 return
         else:
             # HTML Press Release
-            title = response.css("h1::text, .page-title::text, .article-title::text").get(default="CFTC Enforcement Action").strip()
-            
+            title = (
+                response.css("h1::text, .page-title::text, .article-title::text")
+                .get(default="CFTC Enforcement Action")
+                .strip()
+            )
+
             # Capture main body content
-            paragraphs = response.css("article p::text, .field--name-body p::text, p::text").getall()
+            paragraphs = response.css(
+                "article p::text, .field--name-body p::text, p::text"
+            ).getall()
             content = "\n".join(p.strip() for p in paragraphs if p.strip())
 
         if not content.strip():

@@ -7,12 +7,14 @@ Standardized to use the project-wide embedding provider for semantic consistency
 import os
 from typing import Literal
 
+from langchain_experimental.text_splitter import SemanticChunker
+
 # Correct imports for LangChain >= 0.3
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_experimental.text_splitter import SemanticChunker
 
 from app.llm_config import get_embeddings
 from observability.logger import log_info, log_warning
+
 
 def get_text_splitter(
     method: Literal["recursive", "semantic"] = "recursive",
@@ -31,18 +33,18 @@ def get_text_splitter(
             chunk_size=chunk_size,
             chunk_overlap=chunk_overlap,
             separators=[
-                "\n\n",       # Paragraphs
-                "\n",         # Lines
-                "\n(a)",      # Common legal subsections
+                "\n\n",  # Paragraphs
+                "\n",  # Lines
+                "\n(a)",  # Common legal subsections
                 "\n(b)",
                 "\n(c)",
-                "\n(1)",      # Numbered lists
+                "\n(1)",  # Numbered lists
                 "\n(2)",
-                ". ",         # Sentences
-                "; ",         # Clauses
-                ", ",         # Phrasing
-                " ",          # Words
-                ""
+                ". ",  # Sentences
+                "; ",  # Clauses
+                ", ",  # Phrasing
+                " ",  # Words
+                "",
             ],
             length_function=len,
             is_separator_regex=False,
@@ -56,12 +58,18 @@ def get_text_splitter(
             return SemanticChunker(
                 embeddings=embeddings,
                 breakpoint_threshold_type="percentile",
-                breakpoint_threshold_amount=90, 
+                breakpoint_threshold_amount=90,
             )
         except Exception as e:
-            log_warning(f"⚠️ Failed to init semantic embeddings ({e}). Falling back to recursive.")
-            return RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+            log_warning(
+                f"⚠️ Failed to init semantic embeddings ({e}). Falling back to recursive."
+            )
+            return RecursiveCharacterTextSplitter(
+                chunk_size=chunk_size, chunk_overlap=chunk_overlap
+            )
 
     else:
         log_warning(f"❓ Unknown method '{method}'. Falling back to recursive.")
-        return RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+        return RecursiveCharacterTextSplitter(
+            chunk_size=chunk_size, chunk_overlap=chunk_overlap
+        )

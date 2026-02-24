@@ -2,6 +2,7 @@
 """
 Quick script to evaluate a single query using your agent.
 """
+
 import asyncio
 import sys
 from pathlib import Path
@@ -11,10 +12,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
 
 from dotenv import load_dotenv
+
 load_dotenv(BASE_DIR / ".env")
 
 from evaluation.evaluator import AgentEvaluator
 from graph.builder import app as graph_app
+
 
 async def main():
     evaluator = AgentEvaluator()
@@ -34,14 +37,15 @@ async def main():
         ground_truth=None,
     )
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("EVALUATION RESULT")
-    print("="*60)
+    print("=" * 60)
     print(f"Overall Score     : {eval_result['overall_score']:.3f}")
     print(f"Hallucination     : {eval_result['hallucination_score']:.3f}")
     print(f"Answer Quality    : {eval_result['answer_quality']['score']:.3f}")
     print(f"Feedback          : {eval_result['answer_quality']['feedback']}")
-    print("="*60)
+    print("=" * 60)
+
 
 if __name__ == "__main__":
     asyncio.run(main())

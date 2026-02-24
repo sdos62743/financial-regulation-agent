@@ -3,9 +3,10 @@
 Print vector store document counts: total and by category (regulator, source_type, type, spider).
 Run from project root: python scripts/count_db.py (Makefile does this).
 """
+
 import sys
-from pathlib import Path
 from collections import Counter
+from pathlib import Path
 
 # Add project root to path for imports (retrieval.vector_store loads .env)
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))

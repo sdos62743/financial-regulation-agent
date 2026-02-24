@@ -6,9 +6,10 @@ This file tests the complete LangGraph agent workflow from start to finish.
 It covers different intents, routing, self-correction, and error scenarios.
 """
 
-import pytest
 import asyncio
-from unittest.mock import patch, AsyncMock
+from unittest.mock import AsyncMock, patch
+
+import pytest
 
 from graph.builder import app
 from graph.state import AgentState
@@ -44,7 +45,9 @@ async def test_full_agent_calculation_intent():
     assert "synthesized_response" in result
     assert "tool_outputs" in result
     # Should have triggered calculation path
-    assert any("calculation_result" in output for output in result.get("tool_outputs", []))
+    assert any(
+        "calculation_result" in output for output in result.get("tool_outputs", [])
+    )
 
 
 @pytest.mark.asyncio
@@ -71,12 +74,13 @@ async def test_self_correction_loop():
         retrieved_docs=[],
         tool_outputs=[],
         synthesized_response="This is a hallucinated answer with no sources.",
-        validation_result=False,   # Force fail
-        final_output=""
+        validation_result=False,  # Force fail
+        final_output="",
     )
 
     # Run a few steps manually to test loop
     from graph.builder import decide_end
+
     decision = decide_end(initial_state)
 
     assert decision == "planner"  # Should loop back
@@ -85,7 +89,9 @@ async def test_self_correction_loop():
 @pytest.mark.asyncio
 async def test_agent_error_handling():
     """Test that the agent handles errors gracefully without crashing"""
-    with patch("graph.nodes.rag.retrieve_docs", side_effect=Exception("Retrieval failed")):
+    with patch(
+        "graph.nodes.rag.retrieve_docs", side_effect=Exception("Retrieval failed")
+    ):
         result = await app.ainvoke({"query": "This should trigger error handling"})
 
         # Should still return a response (with fallback)
@@ -107,6 +113,7 @@ async def test_agent_empty_query():
 async def test_agent_response_time():
     """Basic performance smoke test"""
     import time
+
     start = time.perf_counter()
 
     result = await app.ainvoke({"query": "Summarize the latest FOMC statement"})

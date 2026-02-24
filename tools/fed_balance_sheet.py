@@ -1,6 +1,8 @@
 # tools/fed_balance_sheet.py
-from .base import BaseTool
 from observability.logger import log_info
+
+from .base import BaseTool
+
 
 class FedBalanceSheetTool(BaseTool):
     name = "fed_balance_sheet"

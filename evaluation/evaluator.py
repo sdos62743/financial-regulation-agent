@@ -8,50 +8,54 @@ Supports single-query evaluation and full benchmark runs.
 
 import json
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Any, Dict, List
 
 from langchain_core.documents import Document
 
+from evaluation.answer_eval import evaluate_answer_quality
+from evaluation.hallucination_detector import detect_hallucinations
+
 # 1. Use Absolute Imports (Prevents "beyond top-level package" errors)
 from evaluation.metrics import calculate_metrics
-from evaluation.answer_eval import evaluate_answer_quality
 from evaluation.retrieval_eval import evaluate_retrieval
-from evaluation.hallucination_detector import detect_hallucinations
+from observability.logger import log_error, log_info, log_warning
 
 # Import monitoring and structured logging
 from observability.monitor import SystemMonitor
-from observability.logger import log_info, log_error, log_warning
 
 # =============================================================================
 # Standalone Bridge Function (Fixes the ImportError in merge.py)
 # =============================================================================
 
+
 async def evaluate_single_query(
     query: str,
     response: str,
     context: str | List[Document],
-    request_id: str | None = None
+    request_id: str | None = None,
 ) -> Dict[str, Any]:
     """
     Standalone function used by the Graph Nodes (like merge.py).
     It initializes the evaluator and runs the single query check.
     """
     evaluator = AgentEvaluator()
-    
+
     # Handle case where context is passed as a string (from a merged response)
     # or as a list of Documents (from a retrieval node)
     docs = context if isinstance(context, list) else []
-    
+
     return await evaluator.evaluate_single_query(
         query=query,
         generated_answer=response,
         retrieved_docs=docs,
-        request_id=request_id
+        request_id=request_id,
     )
+
 
 # =============================================================================
 # Core Evaluator Class
 # =============================================================================
+
 
 class AgentEvaluator:
     """Main evaluator for the Financial Regulation Agent."""
@@ -80,7 +84,7 @@ class AgentEvaluator:
         generated_answer: str,
         retrieved_docs: List[Document],
         ground_truth: str | None = None,
-        request_id: str | None = None
+        request_id: str | None = None,
     ) -> Dict[str, Any]:
         """
         Evaluate a single query comprehensively.
@@ -103,7 +107,9 @@ class AgentEvaluator:
 
             # 3. Retrieval Quality
             if retrieved_docs:
-                results["retrieval_metrics"] = evaluate_retrieval(retrieved_docs, ground_truth)
+                results["retrieval_metrics"] = evaluate_retrieval(
+                    retrieved_docs, ground_truth
+                )
             else:
                 results["retrieval_metrics"] = {"ndcg": 0.0}
 
@@ -114,7 +120,9 @@ class AgentEvaluator:
             SystemMonitor.record_evaluation_score(results["overall_score"])
             SystemMonitor.record_hallucination_rate(results["hallucination_score"])
 
-            log_info(f"[{request_id}] Evaluation completed | Overall Score: {results['overall_score']:.3f}")
+            log_info(
+                f"[{request_id}] Evaluation completed | Overall Score: {results['overall_score']:.3f}"
+            )
 
         except Exception as e:
             log_error(f"[{request_id}] Evaluation failed: {e}", exc_info=True)
@@ -133,7 +141,9 @@ class AgentEvaluator:
 
     async def run_benchmark(self, agent_app, limit: int = 50) -> Dict:
         """Run full benchmark evaluation using the live agent."""
-        log_info(f"Starting benchmark on {len(self.benchmark_data)} questions (limit={limit})")
+        log_info(
+            f"Starting benchmark on {len(self.benchmark_data)} questions (limit={limit})"
+        )
 
         results = []
         for i, item in enumerate(self.benchmark_data[:limit]):
@@ -150,22 +160,25 @@ class AgentEvaluator:
                     query=query,
                     generated_answer=agent_output.get("synthesized_response", ""),
                     retrieved_docs=agent_output.get("retrieved_docs", []),
-                    ground_truth=ground_truth
+                    ground_truth=ground_truth,
                 )
 
-                results.append({
-                    "query": query,
-                    "generated_answer": agent_output.get("synthesized_response", ""),
-                    "evaluation": eval_result
-                })
+                results.append(
+                    {
+                        "query": query,
+                        "generated_answer": agent_output.get(
+                            "synthesized_response", ""
+                        ),
+                        "evaluation": eval_result,
+                    }
+                )
             except Exception as e:
                 log_error(f"Failed to evaluate query: {query[:80]}...", exc_info=True)
 
         final_metrics = calculate_metrics(results)
 
-        log_info(f"Benchmark finished | Overall Score: {final_metrics.get('overall_score', 0):.4f}")
+        log_info(
+            f"Benchmark finished | Overall Score: {final_metrics.get('overall_score', 0):.4f}"
+        )
 
-        return {
-            "overall_metrics": final_metrics,
-            "detailed_results": results
-        }
+        return {"overall_metrics": final_metrics, "detailed_results": results}

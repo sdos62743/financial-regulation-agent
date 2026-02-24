@@ -1,14 +1,17 @@
 """
 Inspect sample document metadata in Chroma (for debugging ingestion).
 """
+
 import os
-import chromadb
 from pathlib import Path
+
+import chromadb
 from dotenv import load_dotenv
 
 # Project root (scripts/ is one level below)
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
+
 
 def diagnose():
     # Path Resolution
@@ -34,21 +37,24 @@ def diagnose():
 
         if count > 0:
             sample = col.peek(limit=1)
-            metadata = sample['metadatas'][0]
+            metadata = sample["metadatas"][0]
 
             print("\n--- 🔍 METADATA VERIFICATION ---")
             for key, value in metadata.items():
                 print(f"{key}: {value} ({type(value).__name__})")
 
             # Validate the Integer Year for Hybrid Search
-            if 'year' in metadata and isinstance(metadata['year'], int):
+            if "year" in metadata and isinstance(metadata["year"], int):
                 print("\n✨ SUCCESS: 'year' is correctly stored as an INTEGER.")
             else:
-                print(f"\n⚠️ WARNING: 'year' type is {type(metadata.get('year'))}. Should be int.")
+                print(
+                    f"\n⚠️ WARNING: 'year' type is {type(metadata.get('year'))}. Should be int."
+                )
 
     except Exception as e:
         print(f"❌ ERROR: Could not access collection '{collection_name}'.")
         print(f"Details: {e}")
+
 
 if __name__ == "__main__":
     diagnose()
