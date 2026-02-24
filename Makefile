@@ -182,6 +182,7 @@ web:
 # Docker
 # =============================================================================
 COMPOSE_FILE = -f docker/docker-compose.yml
+export PROJECT_ROOT := $(CURDIR)
 
 # docker-build: Build agent + Chroma images (no cache)
 docker-build:

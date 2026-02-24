@@ -71,6 +71,7 @@ mkdir -p data/scraped logs
 # -----------------------------------------------------------------------------
 if [ "$USE_DOCKER" = true ]; then
     echo "🐳 Running via Docker..."
+    export PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     if [ "$CLEAR_DB" = true ]; then
         docker compose -f docker/docker-compose.yml down -v || true
     fi

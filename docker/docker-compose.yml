@@ -1,17 +1,19 @@
 version: '3.9'
 
+# PROJECT_ROOT: absolute path to project root (set by Makefile, run_all.sh, or CI)
+# Default: parent of docker/ for backward compatibility
 services:
   agent:
     build:
-      context: .
+      context: ${PROJECT_ROOT:-..}
       dockerfile: docker/Dockerfile
     container_name: financial-regulation-agent
     ports:
       - "8000:8000"
     volumes:
-      - .:/app
-      - ./data:/app/data
-      - ./logs:/app/logs
+      - ${PROJECT_ROOT:-..}:/app
+      - ${PROJECT_ROOT:-..}/data:/app/data
+      - ${PROJECT_ROOT:-..}/logs:/app/logs
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - COHERE_API_KEY=${COHERE_API_KEY}
@@ -33,7 +35,7 @@ services:
     ports:
       - "8001:8000"
     volumes:
-      - ./data/chroma_db:/chroma/chroma
+      - ${PROJECT_ROOT:-..}/data/chroma_db:/chroma/chroma
     environment:
       - IS_PERSISTENT=TRUE
       - ANONYMIZED_TELEMETRY=FALSE
