@@ -4,7 +4,7 @@
 
 .PHONY: help scrape ingest ingest-structured all docker-up docker-down \
         docker-logs docker-build docker-shell clean clean-scraped clean-logs clean-cache clean-db check-db diagnose-db test shell spiders \
-        logs logs-list chat web web-dev count-db
+        logs logs-list chat web web-dev count-db benchmark evaluate
 
 # Optional parameters (passed only if explicitly set)
 LIMIT  ?=
@@ -48,6 +48,10 @@ help:
 	@echo "  make chat                # Interactive CLI chat"
 	@echo "  make web-dev             # Web UI (dev, auto-reload)"
 	@echo "  make web                 # Web UI (production)"
+	@echo ""
+	@echo "Evaluation:"
+	@echo "  make benchmark           # Run full benchmark (evaluation/benchmark_questions.json)"
+	@echo "  make evaluate            # Evaluate single query (FOMC interest rates)"
 	@echo ""
 	@echo "Docker:"
 	@echo "  make docker-build        # Build agent + Chroma images"
@@ -149,10 +153,20 @@ logs-list:
 # =============================================================================
 # Chat / Web
 # =============================================================================
-# chat: Interactive CLI chat with the agent (run_agent.py)
+# chat: Interactive CLI chat with the agent
 chat:
 	@echo "💬 Starting interactive chat..."
-	python3.11 run_agent.py
+	python3.11 scripts/run_agent.py
+
+# benchmark: Run full benchmark evaluation on benchmark_questions.json
+benchmark:
+	@echo "🏆 Running benchmark evaluation..."
+	python3.11 scripts/run_benchmark.py
+
+# evaluate: Evaluate single query (FOMC interest rates example)
+evaluate:
+	@echo "📊 Evaluating single query..."
+	python3.11 scripts/evaluate_single.py
 
 # web-dev: Start web UI with auto-reload for development
 web-dev:

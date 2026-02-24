@@ -24,13 +24,13 @@ Also provide:
 
 Output ONLY a valid JSON object in this exact format:
 
-{
+{{
   "faithfulness": 0.XX,
   "relevance": 0.XX,
   "completeness": 0.XX,
   "clarity": 0.XX,
   "overall_score": 0.XX,
   "feedback": "Short feedback here"
-}
+}}
 
 Do not add any text, explanation, or markdown outside the JSON.

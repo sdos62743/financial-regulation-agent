@@ -42,7 +42,7 @@ def get_llm():
 
         llm = ChatGoogleGenerativeAI(
             model=model_name,
-            api_version="v1", # Force v1 (production) for paid tier
+            api_version="v1",  # Force v1 (production) for paid tier
             google_api_key=os.getenv("GOOGLE_API_KEY"),
             temperature=0.0,
             max_tokens=2048,

@@ -42,6 +42,13 @@ app = FastAPI(
 )
 
 # 4. Middleware
+# Request logging middleware - runs before routes/deps, so we see all incoming requests
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    log_info(f"📨 Incoming: {request.method} {request.url.path}")
+    response = await call_next(request)
+    return response
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

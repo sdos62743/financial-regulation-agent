@@ -11,22 +11,19 @@ import json
 import logging
 from typing import Dict, Any
 
-from langchain_openai import ChatOpenAI
-# FIX: Import from langchain_core to resolve ModuleNotFoundError
 from langchain_core.prompts import PromptTemplate
 
+from app.llm_config import get_llm
 from observability.logger import log_info, log_error, log_debug
 
 from evaluation.prompts.loader import load_prompt
 
 logger = logging.getLogger(__name__)
 
-# LLM used as a strict judge for answer evaluation
-llm = ChatOpenAI(
-    model="gpt-4o-mini",
-    temperature=0.0,          # Zero temperature for deterministic and consistent scoring
-    max_tokens=700,
-)
+# LLM used as a strict judge - uses same provider as agent (LLM_PROVIDER env)
+def _get_eval_llm():
+    llm = get_llm()
+    return llm.with_config(max_tokens=700)
 
 # Load prompt from external file
 answer_eval_prompt = load_prompt("answer_eval")
@@ -54,10 +51,15 @@ async def evaluate_answer_quality(
     Returns:
         Dictionary with detailed scores and feedback
     """
+    # Skip LLM call when agent produced no answer (avoids Gemini "contents are required" error)
+    if not generated_answer or not generated_answer.strip():
+        log_debug("Skipping answer eval: empty response from agent")
+        return _get_fallback_scores("No response from agent to evaluate")
+
     log_debug(f"Answer quality evaluation started | Query: {query[:80]}...")
 
     try:
-        chain = answer_eval_prompt | llm
+        chain = answer_eval_prompt | _get_eval_llm()
 
         result = await chain.ainvoke({
             "query": query,

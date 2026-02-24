@@ -8,20 +8,16 @@ comparing it against the retrieved source documents using an LLM-as-a-Judge appr
 
 import logging
 
-from langchain_openai import ChatOpenAI
-# FIX: Import from langchain_core to resolve ModuleNotFoundError
 from langchain_core.prompts import PromptTemplate
 
+from app.llm_config import get_llm
 from observability.logger import log_info, log_error, log_debug, log_warning
 
 from evaluation.prompts.loader import load_prompt
 
-# LLM used as a strict judge for hallucination detection
-llm = ChatOpenAI(
-    model="gpt-4o-mini",
-    temperature=0.0,          # Zero temperature for deterministic judgment
-    max_tokens=600,
-)
+# LLM used as a strict judge - uses same provider as agent (LLM_PROVIDER env)
+def _get_eval_llm():
+    return get_llm().with_config(max_tokens=600)
 
 # Load prompt from external file
 hallucination_prompt =load_prompt("hallucination_detector")
@@ -53,7 +49,7 @@ async def detect_hallucinations(
     ) or "No source documents provided."
 
     try:
-        chain = hallucination_prompt | llm
+        chain = hallucination_prompt | _get_eval_llm()
 
         result = await chain.ainvoke({
             "response": generated_response,

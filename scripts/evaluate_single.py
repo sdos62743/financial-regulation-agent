@@ -1,10 +1,20 @@
-# evaluate_single.py
+# scripts/evaluate_single.py
 """
 Quick script to evaluate a single query using your agent.
 """
-
 import asyncio
+import sys
+from pathlib import Path
+
+# Add project root to path
+BASE_DIR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(BASE_DIR))
+
+from dotenv import load_dotenv
+load_dotenv(BASE_DIR / ".env")
+
 from evaluation.evaluator import AgentEvaluator
+from graph.builder import app as graph_app
 
 async def main():
     evaluator = AgentEvaluator()
@@ -13,7 +23,7 @@ async def main():
 
     # Run the full agent
     print("Running agent...")
-    result = await graph_app.ainvoke({"query": query})   # graph_app is your compiled agent
+    result = await graph_app.ainvoke({"query": query})
 
     # Evaluate the result
     print("Evaluating response...")
@@ -21,7 +31,7 @@ async def main():
         query=query,
         generated_answer=result.get("synthesized_response", ""),
         retrieved_docs=result.get("retrieved_docs", []),
-        ground_truth=None,                    # Optional: add ground truth if you have it
+        ground_truth=None,
     )
 
     print("\n" + "="*60)
