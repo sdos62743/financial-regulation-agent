@@ -1,6 +1,6 @@
 # Financial Regulation Agent
 
-**Production-ready RAG + Agent system** for analyzing financial regulations from FOMC, SEC, Basel, CFTC, and EDGAR filings.
+**RAG + Agent system for analyzing Financial Regulations** from FOMC, Federal Reserve, SEC, Basel, CFTC, FDIC, FCA (UK), FinCEN, EDGAR, plus structured data (Treasury, SOFR, FRED, FFIEC).
 
 Built with **LangGraph**, **LangChain**, **Scrapy**, **Chroma**, and **FastAPI**.
 
@@ -8,7 +8,7 @@ Built with **LangGraph**, **LangChain**, **Scrapy**, **Chroma**, and **FastAPI**
 
 ## Features
 
-- Multi-source scraping (FOMC, SEC Enforcement/Rules/Speeches, Basel, CFTC, EDGAR)
+- Multi-source scraping: FOMC, Federal Reserve, SEC (Enforcement/Rules/Speeches), Basel, CFTC, FDIC, FCA (UK), FinCEN, EDGAR
 - Hybrid Search (BM25 + Vector similarity) with Cohere reranking
 - Intelligent LangGraph agent with intent classification, planning, retrieval, tools, synthesis & critic validation
 - LangSmith tracing enabled by default
@@ -94,24 +94,48 @@ curl -X POST http://localhost:8000/query \
 ### Available Make Commands
 ```bash
 make help                  # Show all commands
-make scrape                # Run all spiders
-make scrape LIMIT=10 YEAR=2023
-make scrape SPIDER=sec_speeches   # Run one spider
-make spiders               # List all spider names
-make ingest                # Run ingestion (scraped docs)
-make all                   # Scrape + Ingest (full pipeline)
-make count-db              # Show document count in vector store
-make logs                  # Follow app log (tail -f)
-make logs-list             # List log files and locations
-make web                   # Start web chat interface
-make web-dev               # Start web in dev mode
-make chat                  # Interactive chat
-make docker-up             # Start in Docker
-make docker-down           # Stop Docker
-make docker-logs           # Follow Docker logs
-make clean                 # Clean generated files
-make test                  # Run tests
-make shell                 # Open shell in venv
+
+# Scraping (scrape also ingests; use make ingest for re-ingest only)
+make scrape                # Run all spiders + ingest
+make scrape SPIDER=fomc LIMIT=10 YEAR=2024
+make spiders               # List spider names
+
+# Ingestion
+make ingest                # Ingest only (existing data/scraped/*.json)
+make ingest-structured      # Treasury, SOFR, FRED, FFIEC → Chroma
+make all                   # Full pipeline: scrape + ingest
+
+# Utilities
+make count-db              # Doc counts by regulator, type, spider
+make check-db              # Chroma health: count, peek, similarity test
+make diagnose-db           # Sample metadata inspection
+make logs                  # Tail agent log
+make logs-list             # Log locations + Scrapy tail
+
+# Chat / Web
+make chat                  # Interactive CLI chat
+make web-dev               # Web UI (dev, auto-reload)
+make web                   # Web UI (production)
+
+# Evaluation
+make benchmark             # Full benchmark (benchmark_questions.json)
+make evaluate              # Single query evaluation (FOMC example)
+
+# Docker
+make docker-build          # Build agent + Chroma images
+make docker-up             # Start containers
+make docker-down           # Stop containers
+make docker-logs           # Follow agent logs
+make docker-shell          # Bash in agent container
+
+# Maintenance
+make clean                 # clean-scraped + clean-logs + clean-cache
+make clean-scraped         # Remove data/scraped/*.json
+make clean-logs            # Remove logs/*
+make clean-cache           # Remove __pycache__, httpcache, etc.
+make clean-db              # Chroma collections (interactive)
+make test                  # Run pytest
+make shell                 # Bash with venv
 ```
 
 ### How to Run tests (example):
@@ -147,3 +171,5 @@ PYTHONPATH="../../" scrapy crawl sec_speeches -a year=2024 -a limit=10
 | CFTC Enforcement | `cftc_enforcer` | `data/scraped/cftc_enforcer.json` |
 | Basel (PDFs) | `basel_pdf` | `data/scraped/basel_pdf.json` |
 | EDGAR Filings | `edgar_filings` | `data/scraped/edgar_filings.json` |
+
+**Structured data** (via `make ingest-structured`): US Treasury rates, SOFR (NY Fed), FRED economic data, FFIEC Call Report data.
