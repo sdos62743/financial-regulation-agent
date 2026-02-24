@@ -1,6 +1,17 @@
 # ingestion/structured_ingestor.py
 
 import os
+import sys
+from pathlib import Path
+
+# Add project root to PYTHONPATH and load .env before imports that need API keys
+PROJECT_ROOT = Path(__file__).resolve().parents[4]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from dotenv import load_dotenv
+load_dotenv(PROJECT_ROOT / ".env")
+
 import json
 import requests
 from datetime import datetime

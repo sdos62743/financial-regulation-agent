@@ -1,6 +1,6 @@
 # ingestion/regcrawler/regcrawler/pipelines/vector_store_processor.py
 from langchain_core.documents import Document
-from .vector_store import add_documents # Importing your singleton functions
+from retrieval.vector_store import add_documents
 from observability.logger import log_info, log_error
 
 class VectorStorePipeline:

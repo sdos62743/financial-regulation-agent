@@ -13,6 +13,10 @@ PROJECT_ROOT = Path(__file__).parent.parent.resolve()
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+# Load .env before any imports that need API keys
+from dotenv import load_dotenv
+load_dotenv(PROJECT_ROOT / ".env")
+
 import json
 import argparse
 from datetime import datetime

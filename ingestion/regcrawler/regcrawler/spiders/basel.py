@@ -1,3 +1,5 @@
+# ingestion/regcrawler/regcrawler/spiders/basel.py
+
 import re
 from datetime import datetime
 from io import BytesIO
@@ -10,21 +12,19 @@ from scrapy.utils.project import get_project_settings
 from ..items import RegcrawlerItem
 from observability.logger import log_error, log_info, log_warning
 
+
 class BaselSpider(scrapy.Spider):
     name = "basel_pdf"
     allowed_domains = ["bis.org"]
-    start_urls = ["https://www.bis.org/bcbs/publ.htm"]
+    start_urls = ["https://www.bis.org/bcbs/publications.htm"]
 
     custom_settings = {
-        "USER_AGENT": "Surajeet Dev (sdos62743@gmail.com)",  # Use your email here
+        "USER_AGENT": "Surajeet Dev (sdos62743@gmail.com)",
         "DOWNLOAD_TIMEOUT": 60,
         "RETRY_TIMES": 5,
-        "DOWNLOAD_DELAY": 1.0,
+        "DOWNLOAD_DELAY": 1.5,
         "CONCURRENT_REQUESTS_PER_DOMAIN": 2,
         "ROBOTSTXT_OBEY": False,
-        "AUTOTHROTTLE_ENABLED": True,
-        "AUTOTHROTTLE_START_DELAY": 1,
-        "AUTOTHROTTLE_MAX_DELAY": 5,
     }
 
     def __init__(self, year="All", limit="all", *args, **kwargs):
@@ -39,8 +39,18 @@ class BaselSpider(scrapy.Spider):
         self.count = 0
 
     def parse(self, response):
-        # Catch tables or direct PDF links
-        rows = response.css("table.cms_table tr, table.list_table tr")
+        log_info(f"Parsing Basel publications page: {response.url}")
+
+        # === DEBUG: Save the raw HTML so we can inspect what Scrapy sees ===
+        with open("basel_debug_page.html", "w", encoding="utf-8") as f:
+            f.write(response.text)
+        log_info("💾 Saved raw HTML to 'basel_debug_page.html' for inspection")
+
+        # Try multiple possible selectors
+        rows = response.css("table tr, div.publication-item, div.list-item, a[href$='.pdf']")
+
+        log_info(f"Found {len(rows)} potential rows/items")
+
         for row in rows:
             if self.count >= self.limit:
                 break
@@ -49,10 +59,9 @@ class BaselSpider(scrapy.Spider):
             if not pdf_link:
                 continue
 
-            title = row.css("a::text").get(default="Untitled").strip()
-            date_str = row.css("td:first-child::text").get(default="").strip()
+            title = row.css("a::text").get(default="Untitled Basel Document").strip()
+            date_str = row.css("td:first-child::text, .date::text, time::text").get(default="").strip()
 
-            # Year Filter
             year_match = re.search(r"(\d{4})", date_str)
             doc_year = year_match.group(1) if year_match else None
 
@@ -60,21 +69,23 @@ class BaselSpider(scrapy.Spider):
                 yield scrapy.Request(
                     url=response.urljoin(pdf_link),
                     callback=self.parse_document,
-                    meta={"date": date_str, "title": title, "doc_type": "publication"},
+                    meta={
+                        "date": date_str,
+                        "title": title,
+                        "doc_type": "publication"
+                    },
                     dont_filter=True
                 )
 
     def parse_document(self, response):
-        # Verify PDF
         content_type = response.headers.get("Content-Type", b"").decode().lower()
         if "application/pdf" not in content_type and not response.url.endswith(".pdf"):
             log_info(f"Skipping non-PDF: {response.url}")
             return
 
-        # Extract Text
         try:
             reader = PdfReader(BytesIO(response.body))
-            text_parts = [page.extract_text() for page in reader.pages if page.extract_text()]
+            text_parts = [page.extract_text() or "" for page in reader.pages]
             content = "\n\n".join(text_parts).strip()
         except Exception as e:
             log_error(f"PDF extraction failed for {response.url}: {e}")
@@ -84,14 +95,14 @@ class BaselSpider(scrapy.Spider):
             log_warning(f"No text extracted from PDF: {response.url}")
             return
 
-        # Save PDF
         filename = response.url.split("/")[-1]
         filepath = self.pdf_dir / filename
+
         try:
             filepath.write_bytes(response.body)
-            log_info(f"✅ Downloaded PDF: {filename}")
+            log_info(f"✅ Downloaded Basel PDF: {filename}")
         except Exception as e:
-            log_error(f"Disk Write Failed: {e}")
+            log_error(f"Failed to save PDF {filename}: {e}")
             return
 
         self.count += 1

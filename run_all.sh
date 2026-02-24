@@ -1,27 +1,36 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # =============================================================================
 # run_all.sh - Master Production Runner for Financial Regulation Agent
 # =============================================================================
 
-set -e  # Exit immediately if any command fails
+set -euo pipefail  # Exit on error, unset vars, pipeline failure
 
 echo "🚀 Financial Regulation Agent - Master Runner"
 
-# Default values
-LIMIT="all"
-YEAR="All"
+# -----------------------------------------------------------------------------
+# Runtime parameters (no hidden defaults)
+# -----------------------------------------------------------------------------
+LIMIT=""
+YEAR=""
+SPIDER=""
 USE_DOCKER=false
 CLEAR_DB=false
 
+# -----------------------------------------------------------------------------
 # Parse arguments
+# -----------------------------------------------------------------------------
 while [[ $# -gt 0 ]]; do
-    case $1 in
+    case "$1" in
         --limit)
             LIMIT="$2"
             shift 2
             ;;
         --year)
             YEAR="$2"
+            shift 2
+            ;;
+        --spider)
+            SPIDER="$2"
             shift 2
             ;;
         --docker)
@@ -33,11 +42,11 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         --help|-h)
-            echo "Usage: ./run_all.sh [--limit N] [--year YEAR] [--docker] [--clear]"
+            echo "Usage: ./run_all.sh [--limit N] [--year YYYY] [--spider NAME] [--docker] [--clear]"
             exit 0
             ;;
         *)
-            echo "Unknown option: $1"
+            echo "❌ Unknown option: $1"
             echo "Use --help for usage"
             exit 1
             ;;
@@ -45,18 +54,21 @@ while [[ $# -gt 0 ]]; do
 done
 
 echo "📋 Configuration:"
-echo "   Limit    : $LIMIT"
-echo "   Year     : $YEAR"
+echo "   Limit    : ${LIMIT:-<spider default>}"
+echo "   Year     : ${YEAR:-<spider default>}"
+echo "   Spider   : ${SPIDER:-All}"
 echo "   Docker   : $USE_DOCKER"
 echo "   Clear DB : $CLEAR_DB"
 echo "────────────────────────────────────────"
 
-# Create necessary directories
-mkdir -p data/scraped data/basel_pdfs logs
+# -----------------------------------------------------------------------------
+# Prepare directories
+# -----------------------------------------------------------------------------
+mkdir -p data/scraped logs
 
-# =============================================
-# Initialize Environment
-# =============================================
+# -----------------------------------------------------------------------------
+# Docker Mode
+# -----------------------------------------------------------------------------
 if [ "$USE_DOCKER" = true ]; then
     echo "🐳 Running via Docker..."
     if [ "$CLEAR_DB" = true ]; then
@@ -67,28 +79,32 @@ if [ "$USE_DOCKER" = true ]; then
     exit 0
 fi
 
-# Local Mode
+# -----------------------------------------------------------------------------
+# Local Environment
+# -----------------------------------------------------------------------------
 if [ -f ".venv/bin/activate" ]; then
     echo "🔧 Activating virtual environment..."
+    # shellcheck disable=SC1091
     source .venv/bin/activate
 fi
 
-# Optional: Clear database using the singleton we fixed
+# -----------------------------------------------------------------------------
+# Optional: Clear Vector DB
+# -----------------------------------------------------------------------------
 if [ "$CLEAR_DB" = true ]; then
     echo "🗑️  Clearing vector database..."
     python3.11 -c "from retrieval.vector_store import clear_collection; clear_collection()"
 fi
 
-# =============================================
+# -----------------------------------------------------------------------------
 # Run Scrapers
-# =============================================
+# -----------------------------------------------------------------------------
 echo "🕸️  Starting scrapers..."
 
-# Move to the Scrapy project directory
 cd ingestion/regcrawler
+
 PYTHON="${PYTHON:-../../.venv/bin/python3.11}"
 
-# List of spiders: must match spider "name" in regcrawler/regcrawler/spiders/*.py
 ALL_SPIDERS=(
     "fomc"
     "fed_reserve"
@@ -103,42 +119,66 @@ ALL_SPIDERS=(
     "edgar_filings"
 )
 
-# Validate --spider if provided
-if [ -n "$SPIDER" ]; then
-    valid=false
-    for S in "${ALL_SPIDERS[@]}"; do
-        if [ "$SPIDER" = "$S" ]; then valid=true; break; fi
-    done
-    if [ "$valid" = false ]; then
-        echo "❌ Unknown spider: ${SPIDER_STYLE}${SPIDER}${RESET}"
-        echo "   Available:"
-        for s in "${ALL_SPIDERS[@]}"; do echo "     ${SPIDER_STYLE}${s}${RESET}"; done
-        exit_code=1; exit $exit_code
+# Build dynamic Scrapy argument list
+SCRAPY_ARGS=()
+
+if [ -n "$YEAR" ]; then
+    SCRAPY_ARGS+=("-a" "year=$YEAR")
+fi
+
+if [ -n "$LIMIT" ]; then
+    SCRAPY_ARGS+=("-a" "limit=$LIMIT")
+fi
+
+run_spider() {
+    local name="$1"
+    echo "🔍 Crawling: $name"
+
+    if [ "${#SCRAPY_ARGS[@]}" -gt 0 ]; then
+        PYTHONPATH="../../" "$PYTHON" -m scrapy crawl "$name" "${SCRAPY_ARGS[@]}"
+    else
+        PYTHONPATH="../../" "$PYTHON" -m scrapy crawl "$name"
     fi
-    echo "🔍 Crawling: ${SPIDER_STYLE}${SPIDER}${RESET}..."
-    PYTHONPATH="../../" "$PYTHON" -m scrapy crawl "$SPIDER" -a year="$YEAR" -a limit="$LIMIT"
+}
+
+# If specific spider requested
+if [ -n "$SPIDER" ]; then
+    if [[ ! " ${ALL_SPIDERS[*]} " =~ " ${SPIDER} " ]]; then
+        echo "❌ Invalid spider: $SPIDER"
+        echo "Available spiders:"
+        printf "  %s\n" "${ALL_SPIDERS[@]}"
+        exit 1
+    fi
+    run_spider "$SPIDER"
 else
     for S in "${ALL_SPIDERS[@]}"; do
-        echo "🔍 Crawling: ${SPIDER_STYLE}${S}${RESET}..."
-        PYTHONPATH="../../" "$PYTHON" -m scrapy crawl "$S" -a year="$YEAR" -a limit="$LIMIT"
+        run_spider "$S"
     done
 fi
 
-# Return to project root
 cd ../..
 
 echo "✅ All spiders completed."
 
-# =============================================
+# -----------------------------------------------------------------------------
 # Run Ingestion
-# =============================================
+# -----------------------------------------------------------------------------
 echo "📥 Starting vector database ingestion..."
 
-# Use our Python 3.11 environment to run the ingestion script
-python3.11 ingestion/ingest_scraped_docs.py --limit "$LIMIT"
+INGEST_ARGS=()
+
+if [ -n "$LIMIT" ]; then
+    INGEST_ARGS+=("--limit" "$LIMIT")
+fi
+
+if [ "${#INGEST_ARGS[@]}" -gt 0 ]; then
+    python3.11 ingestion/ingest_scraped_docs.py "${INGEST_ARGS[@]}"
+else
+    python3.11 ingestion/ingest_scraped_docs.py
+fi
 
 echo ""
 echo "🎉 All done!"
 echo "📁 Scraped files → data/scraped/"
 echo "🗄️  Vector DB     → data/chroma_db/"
-echo "📜 Logs          → logs/agent.log"
+echo "📜 Logs           → logs/agent.log"

@@ -1,6 +1,7 @@
 # ingestion/regcrawler/commands/ingest_structured.py
 from scrapy.commands import ScrapyCommand
-from ..structured_ingestor import FinancialDataIngestor # Import your class
+from ..structured_data.structured_data_ingest import FinancialDataIngestor
+from observability.logger import log_info
 
 class Command(ScrapyCommand):
     requires_project = True

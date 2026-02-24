@@ -1,104 +1,141 @@
 # =============================================================================
-# Makefile - Production Commands for Financial Regulation Agent
+# Makefile - Financial Regulation Agent (Production Grade)
 # =============================================================================
 
-.PHONY: help scrape ingest ingest-structured all docker-up docker-down docker-logs docker-build clean test shell spiders
+.PHONY: help scrape ingest ingest-structured all docker-up docker-down \
+        docker-logs docker-build docker-shell clean test shell spiders \
+        logs logs-list chat web web-dev count-db
 
-# Default values (can be overridden from command line)
-LIMIT ?= 20
-YEAR  ?= All
+# Optional parameters (passed only if explicitly set)
+LIMIT  ?=
+YEAR   ?=
 SPIDER ?=
 
-# All available spiders (Scrapy name). Run one: make scrape SPIDER=fomc
-SPIDERS := basel_pdf cftc_enforcer edgar_filings fca fdic fed_reserve fincen fomc sec_enforcement sec_rules sec_speeches
+# All available spiders (must match Scrapy spider names exactly)
+SPIDERS := basel_pdf cftc_enforcer edgar_filings fca fdic fed_reserve fincen \
+           fomc sec_enforcement sec_rules sec_speeches
 
 # =============================================================================
 # Help
 # =============================================================================
 help:
 	@echo "══════════════════════════════════════════════════════════════"
-	@echo "   Financial Regulation Agent - Production Commands"
+	@echo "   Financial Regulation Agent - Run Commands"
 	@echo "══════════════════════════════════════════════════════════════"
 	@echo ""
-	@echo "make scrape          → Run all spiders"
-	@echo "make scrape LIMIT=10 YEAR=2023"
-	@echo "make scrape SPIDER=sec_speeches  → Run only one spider"
-	@echo "make spiders         → List all spider names"
+	@echo "Scraping:"
+	@echo "  make scrape"
+	@echo "  make scrape SPIDER=fomc"
+	@echo "  make scrape LIMIT=10"
+	@echo "  make scrape YEAR=2024"
+	@echo "  make scrape SPIDER=basel_pdf LIMIT=5 YEAR=2023"
 	@echo ""
-	@echo "make ingest          → Run ingestion pipeline only"
-	@echo "make ingest LIMIT=50"
-	@echo "make ingest-structured → Ingest Treasury, SOFR, FRED into vector store"
+	@echo "Ingestion:"
+	@echo "  make ingest"
+	@echo "  make ingest-structured"
 	@echo ""
-	@echo "make all             → Scrape + Ingest (full pipeline)"
-	@echo "make count-db        → Show document count in vector store"
-	@echo "make logs            → Follow app log (tail -f logs/agent.log)"
-	@echo "make logs-list       → List log files and locations"
+	@echo "Full Pipeline:"
+	@echo "  make all"
 	@echo ""
-	@echo "make docker-up       → Build & run everything in Docker"
-	@echo "make docker-down     → Stop Docker containers"
-	@echo "make docker-logs     → Follow logs"
+	@echo "Utilities:"
+	@echo "  make spiders"
+	@echo "  make count-db"
+	@echo "  make logs"
+	@echo "  make logs-list"
 	@echo ""
-	@echo "make clean           → Remove scraped files and logs"
-	@echo "make test            → Run tests"
+	@echo "Chat / Web:"
+	@echo "  make chat"
+	@echo "  make web-dev"
+	@echo "  make web"
 	@echo ""
-	@echo "Current defaults: LIMIT=$(LIMIT) | YEAR=$(YEAR)"
+	@echo "Docker:"
+	@echo "  make docker-build"
+	@echo "  make docker-up"
+	@echo "  make docker-down"
+	@echo "  make docker-logs"
+	@echo "  make docker-shell"
+	@echo ""
+	@echo "Maintenance:"
+	@echo "  make clean"
+	@echo "  make test"
+	@echo "  make shell"
 	@echo "══════════════════════════════════════════════════════════════"
 
 # =============================================================================
-# Local Commands
+# Scraping
 # =============================================================================
 scrape:
-	@echo "🕸️  Running spiders... LIMIT=$(LIMIT) YEAR=$(YEAR)$(if $(SPIDER), SPIDER=$(SPIDER),)"
-	./run_all.sh --limit $(LIMIT) --year $(YEAR) $(if $(SPIDER),--spider $(SPIDER),)
+	@echo "🕸️  Running spiders..."
+	./run_all.sh \
+	$(if $(LIMIT),--limit $(LIMIT),) \
+	$(if $(YEAR),--year $(YEAR),) \
+	$(if $(SPIDER),--spider $(SPIDER),)
 
-# List all spiders (use these names with make scrape SPIDER=name)
 spiders:
-	@echo "Available spiders (run with: make scrape SPIDER=<name>):"
+	@echo "Available spiders:"
 	@for s in $(SPIDERS); do echo "  $$s"; done
 	@echo ""
-	@echo "Example: make scrape SPIDER=fomc LIMIT=10"
+	@echo "Example: make scrape SPIDER=fomc LIMIT=10 YEAR=2024"
 
+# =============================================================================
+# Ingestion
+# =============================================================================
 ingest:
 	@echo "📥 Running ingestion pipeline..."
-	python3.11 ingestion/ingest_scraped_docs.py --limit $(LIMIT)
+	python3.11 ingestion/ingest_scraped_docs.py
 
 ingest-structured:
 	@echo "📥 Ingesting structured data (Treasury, SOFR, FRED, FFIEC)..."
 	python3.11 ingestion/regcrawler/regcrawler/structured_data/structured_data_ingest.py
 
 count-db:
-	$(PYTHON) -c "from retrieval.vector_store import get_vector_store; vs = get_vector_store(); count = vs._collection.count(); print(f'📊 Total documents in vector store: {count}')"
-
-# Follow main app log (Ctrl+C to stop). Scrapy uses ingestion/regcrawler/scrapy.log when scraping.
-logs:
-	@mkdir -p logs
-	@echo "📜 Following logs/agent.log (Ctrl+C to stop). Scrapy: ingestion/regcrawler/scrapy.log"
-	@tail -f logs/agent.log 2>/dev/null || tail -f logs/agent.jsonl 2>/dev/null || echo "No log file yet. Run the app or scrape first."
-
-# List log files and where Scrapy writes when run from regcrawler
-logs-list:
-	@echo "Log locations:"
-	@echo "  App/agent : logs/agent.log or logs/agent.jsonl"
-	@echo "  Scrapy    : ingestion/regcrawler/scrapy.log (when running scrape)"
-	@if [ -d logs ]; then echo ""; echo "Contents of logs/:"; ls -la logs/ 2>/dev/null || true; fi
-	@if [ -f ingestion/regcrawler/scrapy.log ]; then echo ""; echo "Scrapy log (last 10 lines):"; tail -10 ingestion/regcrawler/scrapy.log; fi
+	@python3.11 -c "from retrieval.vector_store import get_vector_store; vs=get_vector_store(); print(f'📊 Total documents in vector store: {vs._collection.count()}')"
 
 all: scrape ingest
-	@echo "🎉 Full pipeline (scrape + ingest) completed!"
+	@echo "🎉 Full pipeline completed."
 
+# =============================================================================
+# Logs
+# =============================================================================
+logs:
+	@mkdir -p logs
+	@echo "📜 Following logs/agent.log (Ctrl+C to stop)"
+	@tail -f logs/agent.log 2>/dev/null || \
+	tail -f logs/agent.jsonl 2>/dev/null || \
+	echo "No log file yet."
+
+logs-list:
+	@echo "Log locations:"
+	@echo "  App / Agent logs : logs/agent.log or logs/agent.jsonl"
+	@echo "  Scrapy logs      : ingestion/regcrawler/scrapy.log"
+	@echo ""
+	@if [ -d logs ]; then \
+		echo "Contents of logs/:"; \
+		ls -la logs/; \
+	fi
+	@if [ -f ingestion/regcrawler/scrapy.log ]; then \
+		echo ""; \
+		echo "Last 10 lines of Scrapy log:"; \
+		tail -10 ingestion/regcrawler/scrapy.log; \
+	fi
+
+# =============================================================================
+# Chat / Web
+# =============================================================================
 chat:
-	@echo "💬 Starting interactive chat with the agent..."
+	@echo "💬 Starting interactive chat..."
 	python3.11 run_agent.py
 
 web-dev:
-	@echo "🌐 Starting Web Chat Interface (Development)..."
+	@echo "🌐 Starting Web Interface (Development)..."
 	./run_webapp.sh --dev
 
 web:
-	@echo "🌐 Starting Web Chat Interface (Production)..."
-	./run_webapp.sh 
+	@echo "🌐 Starting Web Interface (Production)..."
+	./run_webapp.sh
+
 # =============================================================================
-# Docker Commands
+# Docker
 # =============================================================================
 COMPOSE_FILE = -f docker/docker-compose.yml
 
@@ -107,7 +144,7 @@ docker-build:
 	docker compose $(COMPOSE_FILE) build --no-cache
 
 docker-up:
-	@echo "🐳 Starting services in Docker..."
+	@echo "🐳 Starting Docker services..."
 	docker compose $(COMPOSE_FILE) up --build -d
 
 docker-down:
@@ -125,8 +162,8 @@ docker-shell:
 # =============================================================================
 clean:
 	@echo "🧹 Cleaning generated files..."
-	rm -rf data/scraped/*.json
-	rm -rf logs/*.log
+	rm -rf data/scraped/*
+	rm -rf logs/*
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 	find . -type f -name "*.pyc" -delete 2>/dev/null || true
 	@echo "✅ Clean completed."
@@ -135,16 +172,12 @@ test:
 	@echo "🧪 Running tests..."
 	pytest tests/ -v --tb=short
 
-# =============================================================================
-# Quick aliases
-# =============================================================================
 shell:
-	@echo "🐚 Opening shell in virtual environment..."
+	@echo "🐚 Opening virtual environment shell..."
 	@if [ -f ".venv/bin/activate" ]; then \
 		source .venv/bin/activate && bash; \
 	else \
-		echo "Virtual environment not found. Run 'python3.11 -m venv .venv' first."; \
+		echo "Virtual environment not found. Run: python3.11 -m venv .venv"; \
 	fi
 
-# Default target
 .DEFAULT_GOAL := help
