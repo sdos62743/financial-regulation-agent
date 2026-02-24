@@ -11,9 +11,24 @@ Tests cover:
 """
 
 import asyncio
+import os
 from unittest.mock import AsyncMock, patch
 
 import pytest
+
+
+def _has_llm_api_key():
+    """Skip LLM-dependent tests when API key is not set (e.g. CI)."""
+    provider = os.getenv("LLM_PROVIDER", "gemini").lower()
+    if provider == "gemini":
+        return bool(os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY"))
+    return bool(os.getenv("OPENAI_API_KEY"))
+
+
+requires_llm = pytest.mark.skipif(
+    not _has_llm_api_key(),
+    reason="LLM API key required (GOOGLE_API_KEY or OPENAI_API_KEY)",
+)
 from langchain_core.documents import Document
 
 from evaluation.answer_eval import evaluate_answer_quality
@@ -40,6 +55,7 @@ def sample_evaluator():
     return evaluator
 
 
+@requires_llm
 @pytest.mark.asyncio
 async def test_hallucination_detection(sample_documents):
     """Test hallucination detector with and without hallucination"""
@@ -58,6 +74,7 @@ async def test_hallucination_detection(sample_documents):
     )  # Bad response should score higher (more hallucinated)
 
 
+@requires_llm
 @pytest.mark.asyncio
 async def test_answer_quality_evaluation():
     """Test answer quality evaluator"""
@@ -101,6 +118,7 @@ def test_metrics_calculation():
     assert "validation_pass_rate" in metrics
 
 
+@requires_llm
 @pytest.mark.asyncio
 async def test_evaluator_single_query(sample_evaluator, sample_documents):
     """Test single query evaluation"""
@@ -116,6 +134,7 @@ async def test_evaluator_single_query(sample_evaluator, sample_documents):
     assert "answer_quality" in result
 
 
+@requires_llm
 @pytest.mark.asyncio
 async def test_benchmark_run(sample_evaluator, sample_documents):
     """Test running the full benchmark (with limit to keep test fast)"""

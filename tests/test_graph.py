@@ -114,8 +114,6 @@ async def test_validation_loop(sample_state):
     sample_state["validation_result"] = False
     sample_state["iterations"] = 0  # We'll add this temporarily for testing
 
-    from graph.builder import decide_end
-
     decision = decide_end(sample_state)
 
     assert decision == "planner_node"
@@ -126,8 +124,6 @@ async def test_max_iterations_prevents_infinite_loop(sample_state):
     """Test safety mechanism against infinite validation loops"""
     sample_state["validation_result"] = False
     sample_state["iterations"] = 4  # Simulate reaching max
-
-    from graph.builder import decide_end
 
     decision = decide_end(sample_state)
 
