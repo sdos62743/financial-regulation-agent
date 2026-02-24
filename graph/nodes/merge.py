@@ -2,6 +2,7 @@
 """
 Synthesis / Merge Node - Tier 1 Optimized
 Combines parallel outputs into a coherent final response.
+Updated to handle LangChain Document objects.
 """
 
 import asyncio
@@ -14,7 +15,7 @@ from app.llm_config import get_llm
 
 async def merge_outputs(state: AgentState) -> Dict[str, Any]:
     """
-    Synthesize the final response.
+    Synthesize the final response using Document objects and tool results.
     """
     query = state.get("query", "").strip()
     plan = state.get("plan", [])
@@ -23,15 +24,20 @@ async def merge_outputs(state: AgentState) -> Dict[str, Any]:
 
     log_info(f"🧬 [Merge Node] Synthesizing final response for query: {query[:50]}...")
 
-    # 1. Format Context (your original logic preserved)
+    # 1. Format Context
     plan_str = "\n".join(plan) if plan else "No plan generated."
     
     doc_entries = []
+    # Loop through documents as objects
     for i, doc in enumerate(retrieved_docs[:8], 1):
-        content = doc.get("page_content", "")
-        meta = doc.get("metadata", {})
-        source = meta.get("source", "Regulatory Document")
-        doc_entries.append(f"Document {i} [{source}]:\n{content[:1200]}")
+        # 🔹 FIXED: Use attribute access instead of .get()
+        content = getattr(doc, "page_content", "")
+        metadata = getattr(doc, "metadata", {})
+        
+        source = metadata.get("source", "Regulatory Document")
+        regulator = metadata.get("regulator", "N/A")
+        
+        doc_entries.append(f"Document {i} [Source: {source} | Regulator: {regulator}]:\n{content[:1500]}")
     
     docs_str = "\n\n".join(doc_entries) if doc_entries else "No documents available."
 
@@ -55,11 +61,11 @@ async def merge_outputs(state: AgentState) -> Dict[str, Any]:
 
         final_response = response.content.strip()
 
-        # Clean up common extra text from Gemini (new defensive step)
+        # Clean up common extra text from Gemini
         if "Final Response:" in final_response:
             final_response = final_response.split("Final Response:")[-1].strip()
 
-        # 4. BACKGROUND TASKS (your original helper preserved)
+        # 4. BACKGROUND TASKS
         asyncio.create_task(_record_merge_metrics(llm, response))
 
         return {"synthesized_response": final_response}
@@ -74,8 +80,13 @@ async def merge_outputs(state: AgentState) -> Dict[str, Any]:
 async def _record_merge_metrics(llm, response):
     """Internal helper to log usage metadata in the background."""
     try:
-        model_name = getattr(llm, "model", "gemini-1.5-flash")
-        
+        # Check for model name across different provider implementations
+        model_name = "gemini-pro"
+        if hasattr(llm, "model_name"):
+            model_name = llm.model_name
+        elif hasattr(llm, "model"):
+            model_name = llm.model
+            
         metadata = getattr(response, "response_metadata", {})
         usage = metadata.get("usage_metadata") or metadata.get("token_usage") or {}
         token_count = usage.get("total_tokens", 0)

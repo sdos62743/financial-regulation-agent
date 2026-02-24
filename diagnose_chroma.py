@@ -1,0 +1,54 @@
+import os
+import chromadb
+from pathlib import Path
+from dotenv import load_dotenv
+
+# 1. Force the .env to load from the absolute project root
+BASE_DIR = Path(__file__).resolve().parent
+load_dotenv(BASE_DIR / ".env")
+
+def diagnose():
+    # 2. Path Resolution
+    rel_path = os.getenv("CHROMA_PERSIST_DIR", "data/chroma_db")
+    abs_path = str((BASE_DIR / rel_path).resolve())
+    collection_name = os.getenv("CHROMA_COLLECTION_NAME", "financial_regulation")
+
+    print(f"📂 Path: {abs_path}")
+    print(f"📦 Collection: {collection_name}")
+
+    if not os.path.exists(abs_path):
+        print(f"❌ ERROR: Path not found.")
+        return
+
+    # 3. Initialize Client (New Pattern)
+    client = chromadb.PersistentClient(path=abs_path)
+
+    try:
+        # In v0.6.0, we just try to get the collection directly
+        col = client.get_collection(name=collection_name)
+        
+        # Check count using the new API
+        count = col.count()
+        print(f"✅ SUCCESS! Found {count} documents.")
+
+        if count > 0:
+            sample = col.peek(limit=1)
+            # Peek returns a dict of lists
+            metadata = sample['metadatas'][0]
+            
+            print("\n--- 🔍 METADATA VERIFICATION ---")
+            for key, value in metadata.items():
+                print(f"{key}: {value} ({type(value).__name__})")
+
+            # Validate the Integer Year for Hybrid Search
+            if 'year' in metadata and isinstance(metadata['year'], int):
+                print("\n✨ SUCCESS: 'year' is correctly stored as an INTEGER.")
+            else:
+                print(f"\n⚠️ WARNING: 'year' type is {type(metadata.get('year'))}. Should be int.")
+
+    except Exception as e:
+        print(f"❌ ERROR: Could not access collection '{collection_name}'.")
+        print(f"Details: {e}")
+
+if __name__ == "__main__":
+    diagnose()

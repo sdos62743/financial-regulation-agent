@@ -14,27 +14,35 @@ langgraph>=1.0.9
 langchain-openai>=1.1.10
 langchain-google-genai>=4.2.1
 google-genai>=1.64.0
-langchain-community>=0.4.0         
+langchain-community>=0.4.0
 langchain-text-splitters>=1.1.1
 langchain-experimental>=0.4.0
 langchain-cohere>=0.5.0
+langchain-chroma>=0.1.0
 
 # =============================================
-# Data Processing & Scraping (Ingestion Module)
+# Data Processing & Scraping
 # =============================================
 scrapy>=2.11.0
-pandas>=2.1.0        # Fixes the ModuleNotFoundError for FFIEC/Structured data
+selenium>=4.25.0
+webdriver-manager>=4.0.2
+pandas>=2.1.0
 numpy>=1.26.0
-openpyxl>=3.1.0      # Required for Excel-based financial reports
+openpyxl>=3.1.0
 beautifulsoup4>=4.12.0
+markdownify>=0.14.0          # ← Added for pipeline
 
 # =============================================
-# Vector Database & Utilities (M3 Compatible)
+# Vector Database & Utilities
 # =============================================
-chromadb==0.6.0                      
+chromadb==0.6.0
 pypdf==5.1.0
 sec2md>=0.1.2
 requests>=2.32.5
+
+# =============================================
+# Pydantic & Settings
+# =============================================
 pydantic>=2.10.0
 pydantic-settings>=2.10.1
 
@@ -45,13 +53,14 @@ cohere>=5.13.0
 tiktoken==0.8.0
 huggingface-hub>=0.33.4
 protobuf>=5.26.1,<6.0
-grpcio>=1.71.2
+rank_bm25==0.2.2
 
 # =============================================
 # Observability & Metrics
 # =============================================
 prometheus-client==0.21.0
 psutil==6.1.1
+
 opentelemetry-api==1.29.0
 opentelemetry-sdk==1.29.0
 opentelemetry-proto==1.29.0
@@ -59,13 +68,24 @@ opentelemetry-exporter-otlp-proto-common==1.29.0
 opentelemetry-exporter-otlp-proto-grpc==1.29.0
 
 # =============================================
-# Testing & Networking
+# Testing
 # =============================================
 pytest==8.3.4
 pytest-asyncio==0.25.0
 websockets>=13.0.0,<15.1.0
 
 # =============================================
-# Optional HuggingFace / Local AI
+# Optional
 # =============================================
 langchain-huggingface>=1.2.0
+
+# =============================================
+# Critical Compatibility
+# =============================================
+grpcio>=1.71.2
+
+# =============================================
+# Compression support for Scrapy
+# =============================================
+brotli==1.1.0
+brotlicffi==1.2.0.0

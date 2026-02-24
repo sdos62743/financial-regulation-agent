@@ -1,56 +1,53 @@
 #!/usr/bin/env python3
 """
 Retrieval-Augmented Generation (RAG) Node - Tier 1 Optimized
-Focuses on state size management and efficient serialization.
-Now passes extracted filters to hybrid_search.
+Focuses on passing full Document objects for Synthesis Node compatibility.
 """
 
-from typing import Dict, Any, List
+from typing import Dict, Any
+from langchain_core.documents import Document
 from observability.logger import log_error, log_info, log_warning
 from retrieval.hybrid_search import hybrid_search
 from graph.state import AgentState
 
 async def retrieve_docs(state: AgentState) -> Dict[str, Any]:
     """
-    Retrieve relevant documents using hybrid search with optional metadata filters.
+    Retrieve relevant documents using hybrid search.
+    Returns Document objects to ensure compatibility with synthesis nodes.
     """
     query = state.get("query", "").strip()
-    filters = state.get("filters", {}) or {}   # ← New: Read filters from state
+    filters = state.get("filters", {}) or {}
 
     if not query:
         log_warning("⚠️ [RAG Node] Empty query. Skipping.")
         return {"retrieved_docs": []}
 
-    log_info(f"🔍 [RAG Node] Searching for: {query[:50]}... | Filters: {filters}")
+    log_info(f"🔍 [RAG Node] Searching: {query[:50]}... | Filters: {filters}")
 
     try:
-        # Pass filters to hybrid_search (this is the key integration point)
+        # Execute the optimized hybrid search
         docs = await hybrid_search(
             query=query,
-            k=12,
-            filters=filters   # ← New line
+            k=8, # Reduced from 12 to 8 to manage token context window
+            filters=filters
         )
 
         if not docs:
             log_warning(f"📭 [RAG Node] No documents found for query: {query[:30]}")
             return {"retrieved_docs": []}
 
-        # PERFORMANCE: Manual Serialization (your original logic preserved)
-        serialized_docs = [
-            {
-                "page_content": doc.page_content.strip(),
-                "metadata": {
-                    "source": doc.metadata.get("source", "Unknown"),
-                    "page": doc.metadata.get("page", 0),
-                    "score": doc.metadata.get("score", 0.0)
-                }
-            }
-            for doc in docs
-        ]
+        # 🔹 PERFORMANCE: Ensure content is clean but preserve the Document type.
+        # This prevents the Synthesis Node from failing when accessing .page_content
+        for doc in docs:
+            doc.page_content = doc.page_content.strip()
+            # Ensure metadata isn't empty for the Reranker/Synthesizer
+            if not doc.metadata:
+                doc.metadata = {"source": "Unknown"}
 
-        log_info(f"✅ [RAG Node] Retrieved {len(serialized_docs)} docs")
+        log_info(f"✅ [RAG Node] Retrieved {len(docs)} Document objects")
         
-        return {"retrieved_docs": serialized_docs}
+        # We return the objects directly. LangGraph handles the state.
+        return {"retrieved_docs": docs}
 
     except Exception as e:
         log_error(f"❌ [RAG Node] Failed: {e}")
