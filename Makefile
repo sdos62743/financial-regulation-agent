@@ -3,7 +3,7 @@
 # =============================================================================
 
 .PHONY: help scrape ingest ingest-structured all docker-up docker-down \
-        docker-logs docker-build docker-shell clean clean-db diagnose-db test shell spiders \
+        docker-logs docker-build docker-shell clean clean-scraped clean-logs clean-cache clean-db check-db diagnose-db test shell spiders \
         logs logs-list chat web web-dev count-db
 
 # Optional parameters (passed only if explicitly set)
@@ -25,13 +25,13 @@ help:
 	@echo "══════════════════════════════════════════════════════════════"
 	@echo ""
 	@echo "Scraping:"
-	@echo "  make scrape              # Run spiders (FOMC, SEC, Basel, etc.)"
-	@echo "  make scrape SPIDER=fomc  # Run single spider"
+	@echo "  make scrape              # Scrape + ingest (run spiders, then load into Chroma)"
+	@echo "  make scrape SPIDER=fomc  # Scrape single spider + ingest"
 	@echo "  make scrape LIMIT=10     # Limit items per spider"
 	@echo "  make spiders             # List spider names"
 	@echo ""
 	@echo "Ingestion:"
-	@echo "  make ingest              # Scraped JSON → chunk → embed → Chroma"
+	@echo "  make ingest              # Ingest only (re-run on existing data/scraped/*.json)"
 	@echo "  make ingest-structured   # Treasury, SOFR, FRED, FFIEC → Chroma"
 	@echo ""
 	@echo "Full Pipeline:"
@@ -39,7 +39,8 @@ help:
 	@echo ""
 	@echo "Utilities:"
 	@echo "  make count-db            # Doc counts by regulator, type, spider"
-	@echo "  make diagnose-db         # Sample metadata inspection (Chroma)"
+	@echo "  make check-db            # Chroma health: count, peek 5 docs, similarity test"
+	@echo "  make diagnose-db        # Sample metadata inspection (Chroma)"
 	@echo "  make logs               # Tail agent log"
 	@echo "  make logs-list           # Log locations + Scrapy tail"
 	@echo ""
@@ -56,7 +57,10 @@ help:
 	@echo "  make docker-shell        # Bash in agent container"
 	@echo ""
 	@echo "Maintenance:"
-	@echo "  make clean               # Scraped JSON, logs, __pycache__, .pyc"
+	@echo "  make clean               # clean-scraped + clean-logs + clean-cache"
+	@echo "  make clean-scraped       # data/scraped/*.json"
+	@echo "  make clean-logs          # logs/*"
+	@echo "  make clean-cache         # __pycache__, .pyc, httpcache, debug html"
 	@echo "  make clean-db            # Chroma collections (interactive)"
 	@echo "  make test                # Run pytest"
 	@echo "  make shell               # Bash with venv"
@@ -65,7 +69,8 @@ help:
 # =============================================================================
 # Scraping
 # =============================================================================
-# scrape: Run Scrapy spiders to fetch regulatory docs (FOMC, SEC, Basel, etc.)
+# scrape: Run Scrapy spiders + ingest into Chroma (scrape then ingest in one go).
+#         Use make ingest only if you already have scraped JSON and want to re-ingest.
 #         Optional: SPIDER=name LIMIT=N YEAR=YYYY
 scrape:
 	@echo "🕸️  Running spiders..."
@@ -84,7 +89,8 @@ spiders:
 # =============================================================================
 # Ingestion
 # =============================================================================
-# ingest: Load scraped JSON from data/scraped, chunk, embed, and store in Chroma
+# ingest: Ingest only — load existing data/scraped/*.json, chunk, embed, store in Chroma
+#         (Use when you have scraped files and want to re-ingest without re-scraping.)
 ingest:
 	@echo "📥 Running ingestion pipeline..."
 	python3.11 ingestion/ingest_scraped_docs.py
@@ -96,12 +102,18 @@ ingest-structured:
 
 # count-db: Show total docs and counts by regulator, source_type, type, spider
 count-db:
-	@python3.11 count_db.py
+	@python3.11 scripts/count_db.py
+
+# check-db: Chroma health check — total count, peek last 5 metadata entries,
+#           and test similarity search for "Basel" (verifies embeddings + retrieval)
+check-db:
+	@echo "🔍 Chroma health check..."
+	@python3.11 scripts/check_db.py
 
 # diagnose-db: Inspect sample document metadata in Chroma (for debugging ingestion)
 diagnose-db:
 	@echo "🔍 Chroma metadata diagnostic..."
-	@python3.11 diagnoise_chroma.py
+	@python3.11 scripts/diagnose_chroma.py
 
 # all: Full pipeline — scrape all spiders, then ingest into vector store
 all: scrape ingest
@@ -183,23 +195,35 @@ docker-shell:
 # =============================================================================
 # Maintenance
 # =============================================================================
-# clean: Remove scraped JSON, logs, __pycache__, .pyc (keeps Chroma DB)
-clean:
-	@echo "🧹 Cleaning generated files..."
-	@echo "   • data/scraped/*.json (scraped output)"
-	@echo "   • logs/* (agent logs)"
-	@echo "   • __pycache__/ dirs"
-	@echo "   • *.pyc files"
+# clean: Remove scraped JSON, logs, cache/temp (keeps Chroma DB)
+clean: clean-scraped clean-logs clean-cache
+	@echo "✅ Clean completed."
+
+# clean-scraped: Remove scraped JSON files from data/scraped/
+clean-scraped:
+	@echo "🧹 Cleaning scraped files (data/scraped/*.json)..."
 	rm -rf data/scraped/*
+	@echo "✅ Scraped files cleaned."
+
+# clean-logs: Remove agent log files from logs/
+clean-logs:
+	@echo "🧹 Cleaning logs (logs/*)..."
 	rm -rf logs/*
+	@echo "✅ Logs cleaned."
+
+# clean-cache: Remove __pycache__, .pyc, Scrapy httpcache, debug html (not json, not logs)
+clean-cache:
+	@echo "🧹 Cleaning cache and temp files..."
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 	find . -type f -name "*.pyc" -delete 2>/dev/null || true
-	@echo "✅ Clean completed."
+	rm -rf ingestion/regcrawler/httpcache 2>/dev/null || true
+	rm -f ingestion/regcrawler/basel_debug*.html ingestion/regcrawler/basel_last_run.html 2>/dev/null || true
+	@echo "✅ Cache cleaned."
 
 # clean-db: Interactive Chroma cleanup — list collections, delete by name or all
 clean-db:
 	@echo "🗑️  Chroma vector DB cleanup (interactive)..."
-	python3.11 clean_chroma.py
+	python3.11 scripts/clean_chroma.py
 
 # test: Run pytest suite
 test:

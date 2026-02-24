@@ -1,15 +1,20 @@
+"""
+Interactive Chroma collection cleanup — list collections, delete by name or all.
+"""
 import chromadb
 import os
+import sys
 from pathlib import Path
 
-from dotenv import load_dotenv
-from observability.logger import log_info, log_warning
+# Add project root to path before any project imports
+BASE_DIR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(BASE_DIR))
 
-# Match vector_store.py: data/chroma_db at project root
-BASE_DIR = Path(__file__).resolve().parent
+from dotenv import load_dotenv
 load_dotenv(BASE_DIR / ".env")
+from observability.logger import log_info, log_warning
 DEFAULT_DB_PATH = BASE_DIR / "data" / "chroma_db"
-PERSIST_PATH = os.getenv("CHROMA_PERSIST_DIR", str(DEFAULT_DB_PATH)) 
+PERSIST_PATH = os.getenv("CHROMA_PERSIST_DIR", str(DEFAULT_DB_PATH))
 
 def manage_collections():
     if not os.path.exists(PERSIST_PATH):
@@ -18,10 +23,10 @@ def manage_collections():
 
     # Initialize the Persistent Client
     client = chromadb.PersistentClient(path=PERSIST_PATH)
-    
+
     # 1. List all collections (Chroma v0.6+ returns names, not Collection objects)
     collection_names = client.list_collections()
-    
+
     if not collection_names:
         print("📭 No collections found in the database.")
         return
@@ -43,9 +48,9 @@ def manage_collections():
         else:
             client.delete_collection(target_name)
             log_info(f"🗑️ Successfully deleted collection: {target_name}")
-            
+
         print("✅ Cleanup complete. You are ready to re-ingest.")
-        
+
     except Exception as e:
         print(f"❌ Error during deletion: {e}")
 

@@ -1,14 +1,17 @@
+"""
+Inspect sample document metadata in Chroma (for debugging ingestion).
+"""
 import os
 import chromadb
 from pathlib import Path
 from dotenv import load_dotenv
 
-# 1. Force the .env to load from the absolute project root
-BASE_DIR = Path(__file__).resolve().parent
+# Project root (scripts/ is one level below)
+BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
 def diagnose():
-    # 2. Path Resolution
+    # Path Resolution
     rel_path = os.getenv("CHROMA_PERSIST_DIR", "data/chroma_db")
     abs_path = str((BASE_DIR / rel_path).resolve())
     collection_name = os.getenv("CHROMA_COLLECTION_NAME", "financial_regulation")
@@ -20,22 +23,19 @@ def diagnose():
         print(f"❌ ERROR: Path not found.")
         return
 
-    # 3. Initialize Client (New Pattern)
+    # Initialize Client
     client = chromadb.PersistentClient(path=abs_path)
 
     try:
-        # In v0.6.0, we just try to get the collection directly
         col = client.get_collection(name=collection_name)
-        
-        # Check count using the new API
+
         count = col.count()
         print(f"✅ SUCCESS! Found {count} documents.")
 
         if count > 0:
             sample = col.peek(limit=1)
-            # Peek returns a dict of lists
             metadata = sample['metadatas'][0]
-            
+
             print("\n--- 🔍 METADATA VERIFICATION ---")
             for key, value in metadata.items():
                 print(f"{key}: {value} ({type(value).__name__})")
