@@ -81,9 +81,32 @@ def get_db_session() -> Generator[None, None, None]:
 
 
 # ----------------------------------------------------------------------
+# Query from POST body (for /query endpoint)
+# ----------------------------------------------------------------------
+async def get_query_from_body(request: Request) -> str:
+    """Extract query string from JSON body."""
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid JSON body",
+        )
+    q = body.get("query", "").strip() if isinstance(body, dict) else ""
+    if not q:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="query is required",
+        )
+    return q
+
+
+# ----------------------------------------------------------------------
 # Annotated Types for Routes
 # ----------------------------------------------------------------------
 # Use these in your controllers for clean, readable code
 TraceDep = Annotated[str, Depends(get_request_context)]
+RequestIDDep = Annotated[str, Depends(get_request_context)]
 APIKeyDep = Annotated[str, Depends(validate_api_key)]
+QueryDep = Annotated[str, Depends(get_query_from_body)]
 DBSessionDep = Annotated[None, Depends(get_db_session)]
