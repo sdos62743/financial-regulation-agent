@@ -40,7 +40,9 @@ class FomcSpider(scrapy.Spider):
     name = "fomc"
     allowed_domains = ["federalreserve.gov"]
 
-    START_HISTORICAL_YEARS = "https://www.federalreserve.gov/monetarypolicy/fomc_historical_year.htm"
+    START_HISTORICAL_YEARS = (
+        "https://www.federalreserve.gov/monetarypolicy/fomc_historical_year.htm"
+    )
     START_CALENDARS = "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
 
     custom_settings = {
@@ -58,7 +60,13 @@ class FomcSpider(scrapy.Spider):
         re.I,
     )
 
-    def __init__(self, years: str = "2021,2022,2023,2024,2025,2026", limit: str = "all", *args, **kwargs):
+    def __init__(
+        self,
+        years: str = "2021,2022,2023,2024,2025,2026",
+        limit: str = "all",
+        *args,
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs)
 
         years_s = (years or "").strip().lower()
@@ -78,7 +86,9 @@ class FomcSpider(scrapy.Spider):
     # Entry
     # -------------------------------------------------
     def start_requests(self):
-        yield scrapy.Request(self.START_HISTORICAL_YEARS, callback=self.parse_historical_index)
+        yield scrapy.Request(
+            self.START_HISTORICAL_YEARS, callback=self.parse_historical_index
+        )
         yield scrapy.Request(self.START_CALENDARS, callback=self.parse_calendars)
 
     # -------------------------------------------------
@@ -100,7 +110,9 @@ class FomcSpider(scrapy.Spider):
             if self.years is not None and yr not in self.years:
                 continue
 
-            yield response.follow(href, callback=self.parse_year_page, meta={"year": yr})
+            yield response.follow(
+                href, callback=self.parse_year_page, meta={"year": yr}
+            )
 
     def parse_year_page(self, response):
         """
@@ -108,7 +120,7 @@ class FomcSpider(scrapy.Spider):
         We just follow links; doc parsing happens in parse_document.
         """
         year = response.meta.get("year")
-        hrefs = response.css('a::attr(href)').getall()
+        hrefs = response.css("a::attr(href)").getall()
 
         for href in hrefs:
             if not href:
@@ -128,7 +140,9 @@ class FomcSpider(scrapy.Spider):
                 continue
             self.seen_urls.add(abs_url)
 
-            yield scrapy.Request(abs_url, callback=self.parse_document, meta={"fallback_year": year})
+            yield scrapy.Request(
+                abs_url, callback=self.parse_document, meta={"fallback_year": year}
+            )
 
     # -------------------------------------------------
     # Calendars (modern)
@@ -142,12 +156,16 @@ class FomcSpider(scrapy.Spider):
         - infer meeting date when possible (best-effort)
         """
         # Try several patterns; we’ll just look for links within the main content.
-        containers = response.css("#article, #content, main, .col-sm-8, .article").getall()
+        containers = response.css(
+            "#article, #content, main, .col-sm-8, .article"
+        ).getall()
         if not containers:
-            log_warning("Calendar page: no main containers found; falling back to all links.")
+            log_warning(
+                "Calendar page: no main containers found; falling back to all links."
+            )
 
         # Take all candidate links on the page and filter to monetarypolicy paths
-        hrefs = response.css('a::attr(href)').getall()
+        hrefs = response.css("a::attr(href)").getall()
         for href in hrefs:
             if not href:
                 continue
@@ -169,7 +187,11 @@ class FomcSpider(scrapy.Spider):
                 continue
             self.seen_urls.add(abs_url)
 
-            yield scrapy.Request(abs_url, callback=self.parse_document, meta={"fallback_year": yr_from_url})
+            yield scrapy.Request(
+                abs_url,
+                callback=self.parse_document,
+                meta={"fallback_year": yr_from_url},
+            )
 
     # -------------------------------------------------
     # Document parser (HTML + PDF link handling)
@@ -185,7 +207,9 @@ class FomcSpider(scrapy.Spider):
         artifact_type = self._classify_from_url(url_l)
 
         # Extract title
-        title = (response.css("h1::text").get() or response.css("title::text").get() or "").strip()
+        title = (
+            response.css("h1::text").get() or response.css("title::text").get() or ""
+        ).strip()
         if not title:
             title = self._doc_id_from_url(url)
 
@@ -200,15 +224,27 @@ class FomcSpider(scrapy.Spider):
                 year_int = int(fy)
 
         # If this is a PDF response, let FilesPipeline handle by emitting file_urls
-        content_type = (response.headers.get("Content-Type", b"").decode(errors="ignore") or "").lower()
+        content_type = (
+            response.headers.get("Content-Type", b"").decode(errors="ignore") or ""
+        ).lower()
         is_pdf = ("application/pdf" in content_type) or url_l.endswith(".pdf")
 
         doc_id = self._doc_id_from_url(url)
 
         # Semantic category: these are almost always policy communications
-        category = "policy" if artifact_type in {
-            "statement", "minutes", "transcript", "implementation_note", "projections", "press_release"
-        } else "other"
+        category = (
+            "policy"
+            if artifact_type
+            in {
+                "statement",
+                "minutes",
+                "transcript",
+                "implementation_note",
+                "projections",
+                "press_release",
+            }
+            else "other"
+        )
 
         if is_pdf:
             self.count += 1
@@ -233,18 +269,20 @@ class FomcSpider(scrapy.Spider):
 
         # HTML: extract visible text nodes (exclude script/style)
         text_nodes = response.xpath(
-            '('
+            "("
             '//*[@id="article"] | //*[@id="content"] | //main | //article | //*[@class="article__content"]'
-            ')[1]//text()[normalize-space()'
-            ' and not(ancestor::script)'
-            ' and not(ancestor::style)'
-            ' and not(ancestor::noscript)'
-            ']'
+            ")[1]//text()[normalize-space()"
+            " and not(ancestor::script)"
+            " and not(ancestor::style)"
+            " and not(ancestor::noscript)"
+            "]"
         ).getall()
 
         if not text_nodes:
             # last resort: whole page text
-            text_nodes = response.xpath('//text()[normalize-space() and not(ancestor::script) and not(ancestor::style)]').getall()
+            text_nodes = response.xpath(
+                "//text()[normalize-space() and not(ancestor::script) and not(ancestor::style)]"
+            ).getall()
 
         content = "\n".join(t.strip() for t in text_nodes if t and t.strip())
         content = re.sub(r"\r\n", "\n", content)
@@ -257,7 +295,11 @@ class FomcSpider(scrapy.Spider):
             pdf_url = response.urljoin(pdf_href)
             if pdf_url not in self.seen_urls:
                 self.seen_urls.add(pdf_url)
-                yield scrapy.Request(pdf_url, callback=self.parse_document, meta={"fallback_year": year_int})
+                yield scrapy.Request(
+                    pdf_url,
+                    callback=self.parse_document,
+                    meta={"fallback_year": year_int},
+                )
 
         if not content or len(content) < 40:
             log_warning(f"Skipping near-empty FOMC page: {url}")
@@ -326,16 +368,22 @@ class FomcSpider(scrapy.Spider):
     def _extract_date_iso(self, response) -> str | None:
         # Try common fed patterns
         date_text = (
-            response.xpath('normalize-space(//time/@datetime)').get()
-            or response.xpath('normalize-space(//time/text())').get()
+            response.xpath("normalize-space(//time/@datetime)").get()
+            or response.xpath("normalize-space(//time/text())").get()
             or response.css(".date::text, .article__time::text").get()
         )
         if not date_text:
             # sometimes date is near title / in meta tags
             date_text = (
-                response.xpath('normalize-space(//meta[@property="article:published_time"]/@content)').get()
-                or response.xpath('normalize-space(//meta[@name="date"]/@content)').get()
-                or response.xpath('normalize-space(//meta[@name="DC.date"]/@content)').get()
+                response.xpath(
+                    'normalize-space(//meta[@property="article:published_time"]/@content)'
+                ).get()
+                or response.xpath(
+                    'normalize-space(//meta[@name="date"]/@content)'
+                ).get()
+                or response.xpath(
+                    'normalize-space(//meta[@name="DC.date"]/@content)'
+                ).get()
             )
         if not date_text:
             # URL token fallback
@@ -358,7 +406,14 @@ class FomcSpider(scrapy.Spider):
         except Exception:
             pass
 
-        for fmt in ("%Y-%m-%d", "%B %d, %Y", "%b %d, %Y", "%m/%d/%Y", "%d %b %Y", "%d %B %Y"):
+        for fmt in (
+            "%Y-%m-%d",
+            "%B %d, %Y",
+            "%b %d, %Y",
+            "%m/%d/%Y",
+            "%d %b %Y",
+            "%d %B %Y",
+        ):
             try:
                 return datetime.strptime(s, fmt).date().isoformat()
             except Exception:

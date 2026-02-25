@@ -112,17 +112,17 @@ class FedReserveSpider(scrapy.Spider):
         # Extract visible text nodes, excluding script/style/noscript
         # Prefer common Fed containers; fallback to first match
         text_nodes = response.xpath(
-            '('
+            "("
             '//*[@id="article"]'
             ' | //*[@id="content"]'
-            ' | //main'
-            ' | //article'
+            " | //main"
+            " | //article"
             ' | //*[@class="article__content"]'
-            ')[1]//text()[normalize-space()'
-            ' and not(ancestor::script)'
-            ' and not(ancestor::style)'
-            ' and not(ancestor::noscript)'
-            ']'
+            ")[1]//text()[normalize-space()"
+            " and not(ancestor::script)"
+            " and not(ancestor::style)"
+            " and not(ancestor::noscript)"
+            "]"
         ).getall()
 
         if not text_nodes:
@@ -143,26 +143,29 @@ class FedReserveSpider(scrapy.Spider):
         if any(h in combined for h in self.ENFORCEMENT_HINTS):
             category = "enforcement"
         else:
-            category = "policy" if artifact_type in {"speech", "testimony", "statement"} else "other"
+            category = (
+                "policy"
+                if artifact_type in {"speech", "testimony", "statement"}
+                else "other"
+            )
 
         doc_id = self._doc_id_from_url(response.url)
 
-        log_info(f"✅ FED captured [{artifact_type}/{category}]: {(title or doc_id)[:80]}")
+        log_info(
+            f"✅ FED captured [{artifact_type}/{category}]: {(title or doc_id)[:80]}"
+        )
 
         yield RegcrawlerItem(
             url=response.url,
-            date=str(date_val),          # ✅ must be string (no None)
-            year=year_int,               # int or None (your pipeline defaults if None)
+            date=str(date_val),  # ✅ must be string (no None)
+            year=year_int,  # int or None (your pipeline defaults if None)
             title=title or doc_id,
             content=content,
-
             regulator="FED",
             jurisdiction="US",
-
-            type=artifact_type,          # artifact type
-            category=category,            # semantic category
-            source_type="web_page",       # ✅ align with your schema
-
+            type=artifact_type,  # artifact type
+            category=category,  # semantic category
+            source_type="web_page",  # ✅ align with your schema
             doc_id=doc_id,
             spider_name=self.name,
             ingest_timestamp=datetime.utcnow().isoformat(),

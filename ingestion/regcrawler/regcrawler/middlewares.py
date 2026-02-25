@@ -1,6 +1,7 @@
 from urllib.parse import urlparse
 from observability.logger import log_error, log_info, log_warning
 
+
 class RegcrawlerDownloaderMiddleware:
     @classmethod
     def from_crawler(cls, crawler):
@@ -17,7 +18,9 @@ class RegcrawlerDownloaderMiddleware:
             path = ""
 
         if response.status >= 400 and not path.endswith("/robots.txt"):
-            log_warning(f"⚠️ High status code detected: {response.status} for {request.url}")
+            log_warning(
+                f"⚠️ High status code detected: {response.status} for {request.url}"
+            )
 
         return response
 

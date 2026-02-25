@@ -64,8 +64,8 @@ class RAGController:
             "query": query,
             "intent": "classify_intent",
             "plan": [],
-            "filters": {},             # ✅ required by state
-            "retrieved_docs": [],      # ✅ correct key
+            "filters": {},  # ✅ required by state
+            "retrieved_docs": [],  # ✅ correct key
             "tool_outputs": [],
             "response": "",
             "synthesized_response": "",
@@ -101,7 +101,9 @@ class RAGController:
                 "success": success,
             }
         except asyncio.TimeoutError:
-            log_error(f"⏱️ [Controller] Timeout after {timeout}s | thread_id={thread_id}")
+            log_error(
+                f"⏱️ [Controller] Timeout after {timeout}s | thread_id={thread_id}"
+            )
             return {
                 "error": "The analysis took too long for a live response. Please try a narrower query.",
                 "answer": "**Timeout Error:** Analysis limit reached.",

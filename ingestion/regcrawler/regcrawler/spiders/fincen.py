@@ -116,7 +116,7 @@ class FincenSpider(scrapy.Spider):
 
         # Pagination: try common Drupal patterns
         next_href = (
-            response.css('li.pager__item--next a::attr(href)').get()
+            response.css("li.pager__item--next a::attr(href)").get()
             or response.css('a[rel="next"]::attr(href)').get()
             or response.xpath('//a[contains(normalize-space(.), "Next")]/@href').get()
         )
@@ -133,17 +133,17 @@ class FincenSpider(scrapy.Spider):
 
         # Prefer main body containers; exclude script/style/nav/footer noise
         text_nodes = response.xpath(
-            '('
+            "("
             '//div[contains(@class,"field--name-body")]'
-            ' | //article'
-            ' | //main'
+            " | //article"
+            " | //main"
             ' | //*[@id="content"]'
             ' | //*[@id="article"]'
-            ')[1]//text()[normalize-space()'
-            ' and not(ancestor::script)'
-            ' and not(ancestor::style)'
-            ' and not(ancestor::noscript)'
-            ']'
+            ")[1]//text()[normalize-space()"
+            " and not(ancestor::script)"
+            " and not(ancestor::style)"
+            " and not(ancestor::noscript)"
+            "]"
         ).getall()
 
         if not text_nodes:
@@ -162,8 +162,8 @@ class FincenSpider(scrapy.Spider):
         # If the listing date was missing, try to recover from page
         if date_val == "Unknown":
             page_date_text = (
-                response.xpath('normalize-space(//time/@datetime)').get()
-                or response.xpath('normalize-space(//time/text())').get()
+                response.xpath("normalize-space(//time/@datetime)").get()
+                or response.xpath("normalize-space(//time/text())").get()
                 or response.xpath(
                     'normalize-space(//*[contains(@class,"date") or contains(@class,"created")]//text())'
                 ).get()
@@ -182,19 +182,21 @@ class FincenSpider(scrapy.Spider):
 
         doc_id = self._doc_id_from_url(response.url)
 
-        log_info(f"✅ FINCEN captured [{artifact_type}/{category}]: {(title or doc_id)[:80]}")
+        log_info(
+            f"✅ FINCEN captured [{artifact_type}/{category}]: {(title or doc_id)[:80]}"
+        )
 
         yield RegcrawlerItem(
             url=response.url,
-            date=str(date_val),      # ✅ never None
-            year=year_int,           # ✅ int
+            date=str(date_val),  # ✅ never None
+            year=year_int,  # ✅ int
             title=title or doc_id,
-            content=content,         # ✅ clean text
-            regulator="FINCEN",      # ✅ your code
+            content=content,  # ✅ clean text
+            regulator="FINCEN",  # ✅ your code
             jurisdiction="US",
-            type=artifact_type,      # artifact kind
-            category=category,        # semantic category
-            source_type="web_page",   # matches your schema
+            type=artifact_type,  # artifact kind
+            category=category,  # semantic category
+            source_type="web_page",  # matches your schema
             doc_id=doc_id,
             spider_name=self.name,
             ingest_timestamp=datetime.utcnow().isoformat(),
@@ -230,7 +232,9 @@ class FincenSpider(scrapy.Spider):
         if any(h in t for h in self.ENFORCEMENT_HINTS):
             return "enforcement"
 
-        if artifact_type in {"advisory", "guidance", "notice"} or any(h in t for h in self.GUIDANCE_HINTS):
+        if artifact_type in {"advisory", "guidance", "notice"} or any(
+            h in t for h in self.GUIDANCE_HINTS
+        ):
             return "guidance"
 
         if any(h in t for h in self.COMPLIANCE_HINTS):

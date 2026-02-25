@@ -64,7 +64,11 @@ def finalize_response(state: AgentState) -> AgentState:
     # Valid but no final_output: fallback to synthesized/response
     synthesized = (state.get("synthesized_response") or "").strip()
     response = (state.get("response") or "").strip()
-    return {"final_output": synthesized or response or "I couldn’t generate an answer. Please rephrase."}
+    return {
+        "final_output": synthesized
+        or response
+        or "I couldn’t generate an answer. Please rephrase."
+    }
 
 
 async def call_tools(state: AgentState) -> AgentState:
@@ -174,9 +178,7 @@ graph.add_edge("synthesis_node", "critic_node")
 
 # --- Validation with loop control ---
 graph.add_conditional_edges(
-    "critic_node",
-    decide_end,
-    {"planner_node": "planner_node", END: "finalize_node"}
+    "critic_node", decide_end, {"planner_node": "planner_node", END: "finalize_node"}
 )
 graph.add_edge("finalize_node", END)
 
