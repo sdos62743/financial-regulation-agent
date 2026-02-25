@@ -207,7 +207,9 @@ def _recency_key(doc: Document) -> Tuple[int, int]:
 
     epoch = _parse_date_to_epoch(md.get("date"))
     if epoch is None:
-        epoch = _parse_date_to_epoch(md.get("moddate")) or _parse_date_to_epoch(md.get("creationdate"))
+        epoch = _parse_date_to_epoch(md.get("moddate")) or _parse_date_to_epoch(
+            md.get("creationdate")
+        )
 
     y = _safe_int(md.get("year")) or 0
     return (int(epoch) if epoch is not None else 0, y)
@@ -284,11 +286,17 @@ async def hybrid_search(
         vector_retriever = store.as_retriever(search_kwargs=search_kwargs)
 
         # BM25 candidate pool (Chroma get expects 'where')
-        pool_limit = max(DEFAULT_LATEST_POOL, candidate_k * 8) if latest_mode else DEFAULT_BM25_POOL_LIMIT
+        pool_limit = (
+            max(DEFAULT_LATEST_POOL, candidate_k * 8)
+            if latest_mode
+            else DEFAULT_BM25_POOL_LIMIT
+        )
 
         try:
             filtered_data = (
-                store.get(where=where, limit=pool_limit, include=["documents", "metadatas"])
+                store.get(
+                    where=where, limit=pool_limit, include=["documents", "metadatas"]
+                )
                 if where
                 else store.get(limit=pool_limit, include=["documents", "metadatas"])
             )
@@ -314,7 +322,9 @@ async def hybrid_search(
         ]
 
         if not all_docs:
-            log_warning("📭 BM25 pool empty after cleaning. Returning vector-only results.")
+            log_warning(
+                "📭 BM25 pool empty after cleaning. Returning vector-only results."
+            )
             return await vector_retriever.ainvoke(query)
 
         # Latest-mode: sort candidate pool first to make BM25 reflect “latest”

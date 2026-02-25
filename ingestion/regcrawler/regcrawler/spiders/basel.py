@@ -71,9 +71,9 @@ class BaselSpider(scrapy.Spider):
                 a.xpath(
                     'normalize-space(./ancestor::tr[1]//td[contains(@class,"item_date")]/text())'
                 ).get()
-                or a.xpath('normalize-space(./ancestor::tr[1]//td[1]/text())').get()
+                or a.xpath("normalize-space(./ancestor::tr[1]//td[1]/text())").get()
                 or a.xpath(
-                    'normalize-space(./ancestor::*[self::li or self::div][1]'
+                    "normalize-space(./ancestor::*[self::li or self::div][1]"
                     '//*[contains(@class,"date")]/text())'
                 ).get()
             )
@@ -129,8 +129,8 @@ class BaselSpider(scrapy.Spider):
         # Try to extract a better date from landing page if missing
         if not date_iso:
             date_text = (
-                response.xpath('normalize-space(//time/@datetime)').get()
-                or response.xpath('normalize-space(//time/text())').get()
+                response.xpath("normalize-space(//time/@datetime)").get()
+                or response.xpath("normalize-space(//time/text())").get()
                 or response.xpath(
                     'normalize-space(//*[contains(., "Published")]/following::text()[1])'
                 ).get()
@@ -157,7 +157,9 @@ class BaselSpider(scrapy.Spider):
     # --------------------------
     # Item creation
     # --------------------------
-    def _create_item(self, file_url: str, title: str, date_iso: str | None, year_int: int | None):
+    def _create_item(
+        self, file_url: str, title: str, date_iso: str | None, year_int: int | None
+    ):
         # de-dupe PDFs (prevents repeated indexing of same URL)
         if file_url in self.seen_pdf_urls:
             return None
@@ -176,12 +178,12 @@ class BaselSpider(scrapy.Spider):
         return RegcrawlerItem(
             file_urls=[file_url],
             title=title.strip() or doc_id,
-            date=date_iso,          # ISO date or None (do NOT invent "today")
-            year=year_int,          # int or None
+            date=date_iso,  # ISO date or None (do NOT invent "today")
+            year=year_int,  # int or None
             regulator="BASEL",
             jurisdiction="Global",
-            type="publication",     # artifact type (Approach A)
-            category="policy",      # semantic category (Approach A)
+            type="publication",  # artifact type (Approach A)
+            category="policy",  # semantic category (Approach A)
             doc_id=doc_id,
             spider_name=self.name,
             ingest_timestamp=datetime.utcnow().isoformat(),

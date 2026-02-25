@@ -152,7 +152,9 @@ def add_documents(docs: List[Document], batch_size: int = 500) -> None:
                 ids.append(cid)
 
             if len(ids) != len(set(ids)):
-                raise RuntimeError("Internal error: duplicate IDs still present in batch")
+                raise RuntimeError(
+                    "Internal error: duplicate IDs still present in batch"
+                )
 
             store.add_documents(documents=batch, ids=ids)
             total += len(batch)

@@ -23,9 +23,9 @@ def diagnose_cftc():
     client = chromadb.PersistentClient(path=abs_path)
     col = client.get_collection(name=collection_name)
 
-    cftc_docs = col.get(where={'regulator': 'CFTC'}, limit=10)
+    cftc_docs = col.get(where={"regulator": "CFTC"}, limit=10)
 
-    total_cftc = len(cftc_docs.get('ids', []))
+    total_cftc = len(cftc_docs.get("ids", []))
     total_docs = col.count()
 
     print(f"✅ Total documents in vector store : {total_docs}")

@@ -76,7 +76,9 @@ class SecSpeechesSpider(scrapy.Spider):
     # -----------------------------
     def start_requests(self):
         log_info("🚀 Starting SEC Speeches spider")
-        yield scrapy.Request(self.START_URL, callback=self.parse_list, meta={"page_idx": 0})
+        yield scrapy.Request(
+            self.START_URL, callback=self.parse_list, meta={"page_idx": 0}
+        )
 
         # Archives (older structure)
         yield scrapy.Request(self.ARCHIVE_SPEECH_URL, callback=self.parse_archive)
@@ -119,7 +121,9 @@ class SecSpeechesSpider(scrapy.Spider):
         # Next page (Drupal-ish patterns)
         next_href = (
             response.xpath('//a[@rel="next"]/@href').get()
-            or response.xpath('//li[contains(@class,"pager__item--next")]/a/@href').get()
+            or response.xpath(
+                '//li[contains(@class,"pager__item--next")]/a/@href'
+            ).get()
             or response.xpath('//a[contains(normalize-space(.),"Next")]/@href').get()
         )
         if not next_href:
@@ -131,7 +135,9 @@ class SecSpeechesSpider(scrapy.Spider):
             log_warning("Next page already visited. Stopping.")
             return
 
-        yield scrapy.Request(next_url, callback=self.parse_list, meta={"page_idx": page_idx + 1})
+        yield scrapy.Request(
+            next_url, callback=self.parse_list, meta={"page_idx": page_idx + 1}
+        )
 
     # -----------------------------
     # Archive pages (pre-2012)
@@ -176,12 +182,12 @@ class SecSpeechesSpider(scrapy.Spider):
 
         # Date can appear in multiple patterns across eras
         date_text = (
-            response.xpath('normalize-space(//time/@datetime)').get()
-            or response.xpath('normalize-space(//time/text())').get()
+            response.xpath("normalize-space(//time/@datetime)").get()
+            or response.xpath("normalize-space(//time/text())").get()
             or response.xpath('normalize-space(//*[contains(@class,"date")][1])').get()
             or response.xpath(
                 'normalize-space(//*[contains(text(),"FOR IMMEDIATE RELEASE")]'
-                '/following::text()[1])'
+                "/following::text()[1])"
             ).get()
         )
         parsed_date_iso = self._parse_date(date_text)
@@ -192,14 +198,14 @@ class SecSpeechesSpider(scrapy.Spider):
 
         # Prefer main/article/body containers; fall back to visible text in <main>
         text_nodes = response.xpath(
-            '('
-            ' //article'
-            ' | //main'
+            "("
+            " //article"
+            " | //main"
             ' | //div[contains(@class,"region-content")]'
             ' | //div[contains(@class,"layout-content")]'
             ' | //div[contains(@class,"content")]'
-            ')[1]'
-            '//text()[normalize-space() and not(ancestor::script) and not(ancestor::style)]'
+            ")[1]"
+            "//text()[normalize-space() and not(ancestor::script) and not(ancestor::style)]"
         ).getall()
 
         if not text_nodes:
@@ -225,12 +231,12 @@ class SecSpeechesSpider(scrapy.Spider):
 
         yield RegcrawlerItem(
             url=response.url,
-            date=clean_date,                      # ✅ string (pipeline already guards too)
+            date=clean_date,  # ✅ string (pipeline already guards too)
             year=(year_int if year_int else None),  # pipeline defaults if None
             title=title or doc_id,
             content=content,
-            type="speech",                        # artifact type
-            category="other",                     # semantic category (keep simple)
+            type="speech",  # artifact type
+            category="other",  # semantic category (keep simple)
             regulator="SEC",
             jurisdiction="US",
             doc_id=doc_id,
@@ -248,11 +254,23 @@ class SecSpeechesSpider(scrapy.Spider):
 
             parts = urlsplit(url)
             qs = parse_qsl(parts.query, keep_blank_values=True)
-            drop = {"utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content"}
+            drop = {
+                "utm_source",
+                "utm_medium",
+                "utm_campaign",
+                "utm_term",
+                "utm_content",
+            }
             qs = [(k, v) for (k, v) in qs if k not in drop]
             qs = sorted(qs, key=lambda kv: kv[0])
             return urlunsplit(
-                (parts.scheme, parts.netloc, parts.path.rstrip("/"), urlencode(qs, doseq=True), "")
+                (
+                    parts.scheme,
+                    parts.netloc,
+                    parts.path.rstrip("/"),
+                    urlencode(qs, doseq=True),
+                    "",
+                )
             )
         except Exception:
             return url

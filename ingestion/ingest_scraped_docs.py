@@ -41,8 +41,11 @@ from langchain_core.documents import Document  # noqa: E402
 
 from observability.logger import log_error, log_info, log_warning  # noqa: E402
 from retrieval.chunking import get_text_splitter  # noqa: E402
-from retrieval.vector_store import add_documents, clear_collection, get_collection_count  # noqa: E402
-
+from retrieval.vector_store import (
+    add_documents,
+    clear_collection,
+    get_collection_count,
+)  # noqa: E402
 
 _YEAR_RE = re.compile(r"\b(19\d{2}|20\d{2})\b")
 
@@ -175,8 +178,16 @@ def json_to_documents(json_path: Path) -> List[Document]:
                 continue
 
             # Approach A fields
-            regulator = (item.get("regulator") or "Unknown").strip() if isinstance(item.get("regulator"), str) else (item.get("regulator") or "Unknown")
-            jurisdiction = (item.get("jurisdiction") or "Global").strip() if isinstance(item.get("jurisdiction"), str) else (item.get("jurisdiction") or "Global")
+            regulator = (
+                (item.get("regulator") or "Unknown").strip()
+                if isinstance(item.get("regulator"), str)
+                else (item.get("regulator") or "Unknown")
+            )
+            jurisdiction = (
+                (item.get("jurisdiction") or "Global").strip()
+                if isinstance(item.get("jurisdiction"), str)
+                else (item.get("jurisdiction") or "Global")
+            )
 
             source_type = _derive_source_type(item)
             artifact_type = _derive_artifact_type(item, source_type)
@@ -203,15 +214,14 @@ def json_to_documents(json_path: Path) -> List[Document]:
                 "title": title.strip(),
                 "regulator": regulator,
                 "jurisdiction": jurisdiction,
-
                 # ✅ Approach A
                 "type": artifact_type,
                 "category": category,
                 "source_type": source_type,
                 "spider": spider,
-
                 "doc_id": doc_id,
-                "ingest_timestamp": item.get("ingest_timestamp") or datetime.utcnow().isoformat(),
+                "ingest_timestamp": item.get("ingest_timestamp")
+                or datetime.utcnow().isoformat(),
                 "source_file": json_path.name,
             }
 
@@ -229,11 +239,21 @@ def json_to_documents(json_path: Path) -> List[Document]:
 # Main
 # ----------------------------
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Financial Regulation Ingestion Pipeline (Approach A)")
-    parser.add_argument("--limit", type=int, default=None, help="Max chunks to ingest total")
-    parser.add_argument("--clear", action="store_true", help="Clear vector DB before ingesting")
-    parser.add_argument("--mock", action="store_true", help="Use mock data folder instead of scraped")
-    parser.add_argument("--batch-size", type=int, default=200, help="Batch size for vector DB insertion")
+    parser = argparse.ArgumentParser(
+        description="Financial Regulation Ingestion Pipeline (Approach A)"
+    )
+    parser.add_argument(
+        "--limit", type=int, default=None, help="Max chunks to ingest total"
+    )
+    parser.add_argument(
+        "--clear", action="store_true", help="Clear vector DB before ingesting"
+    )
+    parser.add_argument(
+        "--mock", action="store_true", help="Use mock data folder instead of scraped"
+    )
+    parser.add_argument(
+        "--batch-size", type=int, default=200, help="Batch size for vector DB insertion"
+    )
     parser.add_argument("--chunk-size", type=int, default=1100, help="Chunk size")
     parser.add_argument("--chunk-overlap", type=int, default=180, help="Chunk overlap")
     args = parser.parse_args()
@@ -251,7 +271,9 @@ def main() -> None:
         return
 
     # 3) Chunking config
-    splitter = get_text_splitter(method="recursive", chunk_size=args.chunk_size, chunk_overlap=args.chunk_overlap)
+    splitter = get_text_splitter(
+        method="recursive", chunk_size=args.chunk_size, chunk_overlap=args.chunk_overlap
+    )
 
     total_chunks_processed = 0
 
@@ -280,7 +302,9 @@ def main() -> None:
             try:
                 add_documents(batch)
             except Exception as e:
-                log_error(f"Batch insertion failed for {json_file.name} [{i}:{i + len(batch)}]: {e}")
+                log_error(
+                    f"Batch insertion failed for {json_file.name} [{i}:{i + len(batch)}]: {e}"
+                )
                 continue
 
         total_chunks_processed += len(chunks)

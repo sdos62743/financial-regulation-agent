@@ -27,7 +27,6 @@ from typing import Any, Dict, Optional
 import chromadb
 from dotenv import load_dotenv
 
-
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
@@ -101,18 +100,35 @@ def _schema_checks(meta: Dict[str, Any]) -> None:
         print(f"✨ type: present ({t!r})")
 
     if c is None:
-        print("⚠️ category: MISSING (semantic like enforcement/policy/rulemaking/other)")
+        print(
+            "⚠️ category: MISSING (semantic like enforcement/policy/rulemaking/other)"
+        )
     else:
         print(f"✨ category: present ({c!r})")
 
-    for k in ("regulator", "jurisdiction", "source_type", "spider", "doc_id", "url", "title", "date"):
+    for k in (
+        "regulator",
+        "jurisdiction",
+        "source_type",
+        "spider",
+        "doc_id",
+        "url",
+        "title",
+        "date",
+    ):
         if meta.get(k) is None:
             print(f"⚠️ {k}: MISSING")
 
     print("✅ Done.")
 
 
-def diagnose(limit: int, regulator: str | None, category: str | None, type_: str | None, year: str | None) -> None:
+def diagnose(
+    limit: int,
+    regulator: str | None,
+    category: str | None,
+    type_: str | None,
+    year: str | None,
+) -> None:
     abs_path, collection_name = _resolve_chroma()
 
     print(f"📂 Path: {abs_path}")
@@ -212,11 +228,34 @@ def diagnose(limit: int, regulator: str | None, category: str | None, type_: str
 
 def main() -> None:
     p = argparse.ArgumentParser()
-    p.add_argument("--limit", type=int, default=25, help="How many docs to sample (max 500).")
-    p.add_argument("--regulator", type=str, default=None, help='Filter by regulator code (e.g., "BASEL").')
-    p.add_argument("--category", type=str, default=None, help='Filter by semantic category (e.g., "policy").')
-    p.add_argument("--type", dest="type_", type=str, default=None, help='Filter by artifact type (e.g., "press_release", "publication").')
-    p.add_argument("--year", type=str, default=None, help='Filter by year (e.g., "2026"). Matches int or str stored values.')
+    p.add_argument(
+        "--limit", type=int, default=25, help="How many docs to sample (max 500)."
+    )
+    p.add_argument(
+        "--regulator",
+        type=str,
+        default=None,
+        help='Filter by regulator code (e.g., "BASEL").',
+    )
+    p.add_argument(
+        "--category",
+        type=str,
+        default=None,
+        help='Filter by semantic category (e.g., "policy").',
+    )
+    p.add_argument(
+        "--type",
+        dest="type_",
+        type=str,
+        default=None,
+        help='Filter by artifact type (e.g., "press_release", "publication").',
+    )
+    p.add_argument(
+        "--year",
+        type=str,
+        default=None,
+        help='Filter by year (e.g., "2026"). Matches int or str stored values.',
+    )
     args = p.parse_args()
 
     diagnose(

@@ -72,8 +72,12 @@ class CftcEnforceSpider(scrapy.Spider):
     # Start
     # -------------------------------------------------
     def start_requests(self):
-        log_info("🚀 Starting CFTC Press Release spider (all documents, clean text extraction)")
-        yield scrapy.Request(self.START_URL, callback=self.parse_list, meta={"page_idx": 0})
+        log_info(
+            "🚀 Starting CFTC Press Release spider (all documents, clean text extraction)"
+        )
+        yield scrapy.Request(
+            self.START_URL, callback=self.parse_list, meta={"page_idx": 0}
+        )
 
     # -------------------------------------------------
     # Listing page parser
@@ -91,11 +95,15 @@ class CftcEnforceSpider(scrapy.Spider):
             return
         self.seen_list_pages.add(normalized_url)
 
-        hrefs = response.xpath('//a[contains(@href,"/PressRoom/PressReleases/")]/@href').getall()
+        hrefs = response.xpath(
+            '//a[contains(@href,"/PressRoom/PressReleases/")]/@href'
+        ).getall()
         links = list({response.urljoin(h) for h in hrefs if h})
         new_links = [u for u in links if u not in self.seen_release_links]
 
-        log_info(f"📄 Listing page {page_idx} → {len(new_links)} new links (raw {len(links)})")
+        log_info(
+            f"📄 Listing page {page_idx} → {len(new_links)} new links (raw {len(links)})"
+        )
 
         if not new_links:
             log_info("No new links found. Pagination complete.")
@@ -123,7 +131,9 @@ class CftcEnforceSpider(scrapy.Spider):
             log_warning("Next page already visited. Stopping.")
             return
 
-        yield scrapy.Request(next_url, callback=self.parse_list, meta={"page_idx": page_idx + 1})
+        yield scrapy.Request(
+            next_url, callback=self.parse_list, meta={"page_idx": page_idx + 1}
+        )
 
     # -------------------------------------------------
     # Document parser
@@ -133,7 +143,9 @@ class CftcEnforceSpider(scrapy.Spider):
             return
 
         # Defensive: skip CSS/JS assets in case they slip in
-        content_type = response.headers.get("Content-Type", b"").decode(errors="ignore").lower()
+        content_type = (
+            response.headers.get("Content-Type", b"").decode(errors="ignore").lower()
+        )
         url_l = response.url.lower()
         if "text/css" in content_type or url_l.endswith(".css"):
             log_warning(f"Skipping CSS asset: {response.url}")
@@ -160,14 +172,14 @@ class CftcEnforceSpider(scrapy.Spider):
         # Prefer Drupal body field; fallback to main content region.
         text_nodes = response.xpath(
             '//div[contains(@class,"field--name-body")]'
-            '//text()[normalize-space() and not(ancestor::script) and not(ancestor::style)]'
+            "//text()[normalize-space() and not(ancestor::script) and not(ancestor::style)]"
         ).getall()
 
         if not text_nodes:
             text_nodes = response.xpath(
                 '(//main | //div[contains(@class,"region-content")] '
                 '| //div[contains(@class,"layout-content")])[1]'
-                '//text()[normalize-space() and not(ancestor::script) and not(ancestor::style)]'
+                "//text()[normalize-space() and not(ancestor::script) and not(ancestor::style)]"
             ).getall()
 
         if not text_nodes:
@@ -203,12 +215,12 @@ class CftcEnforceSpider(scrapy.Spider):
 
         yield RegcrawlerItem(
             url=response.url,
-            date=parsed_date,          # can be None; pipeline must sanitize to "Unknown"
-            year=year_int,             # ✅ int or None (not string)
+            date=parsed_date,  # can be None; pipeline must sanitize to "Unknown"
+            year=year_int,  # ✅ int or None (not string)
             title=title or doc_id,
             content=content,
-            type="press_release",      # artifact kind
-            category=category,         # ✅ semantic category
+            type="press_release",  # artifact kind
+            category=category,  # ✅ semantic category
             regulator="CFTC",
             jurisdiction="US",
             doc_id=doc_id,
@@ -225,11 +237,19 @@ class CftcEnforceSpider(scrapy.Spider):
 
             parts = urlsplit(url)
             qs = parse_qsl(parts.query, keep_blank_values=True)
-            drop = {"utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content"}
+            drop = {
+                "utm_source",
+                "utm_medium",
+                "utm_campaign",
+                "utm_term",
+                "utm_content",
+            }
             qs = [(k, v) for (k, v) in qs if k not in drop]
             qs = sorted(qs, key=lambda kv: kv[0])
             norm_query = urlencode(qs, doseq=True)
-            return urlunsplit((parts.scheme, parts.netloc, parts.path.rstrip("/"), norm_query, ""))
+            return urlunsplit(
+                (parts.scheme, parts.netloc, parts.path.rstrip("/"), norm_query, "")
+            )
         except Exception:
             return url
 
@@ -241,7 +261,11 @@ class CftcEnforceSpider(scrapy.Spider):
 
         # ISO
         try:
-            return datetime.fromisoformat(date_text.replace("Z", "+00:00")).date().isoformat()
+            return (
+                datetime.fromisoformat(date_text.replace("Z", "+00:00"))
+                .date()
+                .isoformat()
+            )
         except Exception:
             pass
 

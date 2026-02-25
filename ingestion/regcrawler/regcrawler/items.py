@@ -1,5 +1,6 @@
 import scrapy
 
+
 class RegcrawlerItem(scrapy.Item):
     # --- CORE SCRAPY & FILE FIELDS ---
     file_urls = scrapy.Field()
@@ -19,9 +20,9 @@ class RegcrawlerItem(scrapy.Item):
     jurisdiction = scrapy.Field()
 
     # ✅ Approach A fields
-    type = scrapy.Field()          # artifact kind
-    category = scrapy.Field()      # semantic category
-    source_type = scrapy.Field()   # "web_page" | "document"
+    type = scrapy.Field()  # artifact kind
+    category = scrapy.Field()  # semantic category
+    source_type = scrapy.Field()  # "web_page" | "document"
 
     # --- PIPELINE FIELDS ---
     attached_pdfs = scrapy.Field()

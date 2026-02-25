@@ -21,11 +21,10 @@ class VectorStorePipeline:
         # 1. Handle Raw Text Content (Press Releases / HTML)
         raw_content = item.get("content")
         if raw_content and raw_content.strip():
-            log_info(f"text [Pipeline] Processing text content for: {item.get('title')}")
-            text_doc = Document(
-                page_content=raw_content,
-                metadata=base_meta.copy()
+            log_info(
+                f"text [Pipeline] Processing text content for: {item.get('title')}"
             )
+            text_doc = Document(page_content=raw_content, metadata=base_meta.copy())
             docs_to_ingest.append(text_doc)
 
         # 2. Handle PDF Content (Downloaded Files)
@@ -77,11 +76,15 @@ class VectorStorePipeline:
     def _get_base_metadata(self, item):
         raw_year = item.get("year")
         try:
-            clean_year = int(raw_year) if raw_year is not None else datetime.utcnow().year
+            clean_year = (
+                int(raw_year) if raw_year is not None else datetime.utcnow().year
+            )
         except (ValueError, TypeError):
             clean_year = datetime.utcnow().year
 
-        derived_source = "document" if item.get("files") or item.get("file_urls") else "web_page"
+        derived_source = (
+            "document" if item.get("files") or item.get("file_urls") else "web_page"
+        )
         source_type = item.get("source_type") or derived_source
 
         default_type = "document" if source_type == "document" else "web_page"
@@ -123,7 +126,9 @@ class VectorStorePipeline:
 
             # already ISO date
             try:
-                return datetime.fromisoformat(s.replace("Z", "+00:00")).date().isoformat()
+                return (
+                    datetime.fromisoformat(s.replace("Z", "+00:00")).date().isoformat()
+                )
             except Exception:
                 pass
 
