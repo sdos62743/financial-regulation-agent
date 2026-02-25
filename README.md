@@ -19,6 +19,12 @@ Built with **LangGraph**, **LangChain**, **Scrapy**, **Chroma**, and **FastAPI**
 
 ---
 
+## Agent Flow
+
+<img src="langgraph.png" alt="LangGraph Architecture" width="900" />
+
+---
+
 ## Quick Start
 
 ### Option 1: Local Development

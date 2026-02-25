@@ -180,6 +180,7 @@ graph.add_edge("synthesis_node", "critic_node")
 graph.add_conditional_edges(
     "critic_node", decide_end, {"planner_node": "planner_node", END: "finalize_node"}
 )
+graph.add_edge("direct_response_node", "finalize_node")
 graph.add_edge("finalize_node", END)
 
 # Compile the final runnable graph

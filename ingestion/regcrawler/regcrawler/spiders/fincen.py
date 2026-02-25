@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 import scrapy
 
 from observability.logger import log_error, log_info, log_warning
+
 from ..items import RegcrawlerItem
 
 
