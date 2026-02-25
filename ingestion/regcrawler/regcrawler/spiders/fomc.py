@@ -1,183 +1,371 @@
-# ingestion/regcrawler/spiders/fomc.py
+# ingestion/regcrawler/regcrawler/spiders/fomc.py
+
+from __future__ import annotations
 
 import re
 from datetime import datetime
-from io import BytesIO
+from urllib.parse import urlparse
 
 import scrapy
-
-from observability.logger import log_error, log_warning
+from observability.logger import log_error, log_info, log_warning
 
 from ..items import RegcrawlerItem
 
-# Attempt to import PdfReader, but handle failure gracefully
-try:
-    from pypdf import PdfReader
-except ImportError:
-    PdfReader = None
-
 
 class FomcSpider(scrapy.Spider):
+    """
+    FOMC crawler (Federal Reserve) without Selenium.
+
+    Goals:
+    - Ingest FOMC artifacts that matter for RAG:
+        * FOMC statements
+        * minutes
+        * press conference transcripts (when present)
+        * implementation notes
+        * SEP / projections tables (often PDF)
+        * related press releases
+    - Avoid heavy PDF parsing in-spider (let your FilesPipeline + PDF pipeline handle PDFs)
+    - Emit Chroma-safe metadata (no None values in date; year is int or None; doc_id stable)
+    - Use Approach A fields:
+        regulator="FED", jurisdiction="US"
+        type = artifact kind (minutes/statement/projections/transcript/implementation_note/press_release/other)
+        category = semantic (policy/other)
+        source_type derived by your pipeline; we set it when obvious
+
+    Notes:
+    - If you want “only recent”, pass `--years 2024,2025,2026` etc.
+    - If you want everything, pass `--years all`
+    """
+
     name = "fomc"
     allowed_domains = ["federalreserve.gov"]
-    start_urls = [
-        "https://www.federalreserve.gov/monetarypolicy/fomc_historical_year.htm"
-    ]
 
-    # Production safeguards to prevent machine hangs
+    START_HISTORICAL_YEARS = "https://www.federalreserve.gov/monetarypolicy/fomc_historical_year.htm"
+    START_CALENDARS = "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm"
+
     custom_settings = {
-        "CONCURRENT_REQUESTS": 2,  # Lowered for machine stability
-        "DOWNLOAD_DELAY": 1.5,  # Respectful crawling
-        "DOWNLOAD_MAXSIZE": 5242880,  # 5MB Limit: Prevents RAM explosion from giant PDFs
-        "MEMUSAGE_ENABLED": True,  # Kill spider if it leaks memory
-        "MEMUSAGE_LIMIT_MB": 1024,  # 1GB threshold
+        "ROBOTSTXT_OBEY": False,
+        "DOWNLOAD_DELAY": 0.6,
     }
+    # Broad allowlist of monetarypolicy FOMC doc URLs
+    _FOMC_DOC_RE = re.compile(
+        r"/monetarypolicy/"
+        r"(?:fomc)?"
+        r"(statement|minutes|pressconf|fomcminutes|fomcpresconf|fomcstatement|"
+        r"fomcprojtabl|projtabl|fomcimplementationnote|implementationnote|"
+        r"fomcmeeting|fomccalendars|fomchistorical)"
+        r".*",
+        re.I,
+    )
 
-    def __init__(self, year="2026", limit="all", *args, **kwargs):
+    def __init__(self, years: str = "2021,2022,2023,2024,2025,2026", limit: str = "all", *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if year == "All":
-            self.years = ["All"]
-        else:
-            self.years = [y.strip() for y in str(year).split(",")]
 
-        self.limit = int(limit) if limit != "all" else float("inf")
+        years_s = (years or "").strip().lower()
+        if years_s in {"all", "*"}:
+            self.years = None  # means "no filter"
+        else:
+            self.years = {y.strip() for y in years.split(",") if y.strip()}
+            # tolerate "2026 " etc.
+            self.years = {y for y in self.years if re.fullmatch(r"\d{4}", y)}
+
+        self.limit = int(limit) if str(limit).lower() != "all" else float("inf")
         self.count = 0
 
-    def parse(self, response):
-        """Initial discovery: Routes to either Historical or Recent Calendar."""
-        # 1. Historical Years
-        year_links = response.css('a[href*="fomchistorical"]::attr(href)').getall()
-        for link in year_links:
-            yr_match = re.search(r"fomchistorical(\d{4})", link)
-            if yr_match:
-                yr = yr_match.group(1)
-                if "All" in self.years or yr in self.years:
-                    yield response.follow(
-                        link, callback=self.parse_year, meta={"year": yr}
-                    )
+        self.seen_urls: set[str] = set()
 
-        # 2. Recent Calendar (2021-2026+)
-        if "All" in self.years or any(
-            int(y) >= 2021 for y in self.years if y.isdigit()
-        ):
-            yield response.follow(
-                "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm",
-                callback=self.parse_calendar,
-            )
+    # -------------------------------------------------
+    # Entry
+    # -------------------------------------------------
+    def start_requests(self):
+        yield scrapy.Request(self.START_HISTORICAL_YEARS, callback=self.parse_historical_index)
+        yield scrapy.Request(self.START_CALENDARS, callback=self.parse_calendars)
 
-    def parse_calendar(self, response):
-        """Processes the modern grid layout."""
-        for row in response.css("div.fomc-meeting"):
-            month = row.css(".fomc-meeting__month::text").get()
-            day = row.css(".fomc-meeting__day::text").get()
-            meeting_date = f"{month} {day}".strip() if month and day else "Unknown"
+    # -------------------------------------------------
+    # Historical index → year pages
+    # -------------------------------------------------
+    def parse_historical_index(self, response):
+        # links like .../fomchistorical2020.htm
+        hrefs = response.css('a[href*="fomchistorical"]::attr(href)').getall()
+        if not hrefs:
+            log_warning("No historical year links found on index.")
+            return
 
-            for link_node in row.css("a"):
-                url = link_node.css("::attr(href)").get()
-                text = (link_node.css("::text").get() or "").lower()
+        for href in sorted(set(hrefs)):
+            m = re.search(r"fomchistorical(\d{4})", href)
+            if not m:
+                continue
+            yr = m.group(1)
 
-                if not url:
-                    continue
+            if self.years is not None and yr not in self.years:
+                continue
 
-                doc_type = self._classify_doc(url, text)
+            yield response.follow(href, callback=self.parse_year_page, meta={"year": yr})
 
-                # Prioritize HTML (.htm) over PDF to save system resources
-                priority = 10 if "htm" in url else 1
+    def parse_year_page(self, response):
+        """
+        Year pages contain links to minutes/statements/pressconf/projections etc.
+        We just follow links; doc parsing happens in parse_document.
+        """
+        year = response.meta.get("year")
+        hrefs = response.css('a::attr(href)').getall()
 
-                yield response.follow(
-                    url,
-                    callback=self.parse_document,
-                    meta={"doc_type": doc_type, "date": meeting_date},
-                    priority=priority,
-                )
+        for href in hrefs:
+            if not href:
+                continue
+            abs_url = response.urljoin(href)
 
+            if "federalreserve.gov" not in urlparse(abs_url).netloc:
+                continue
+
+            if "/monetarypolicy/" not in abs_url:
+                continue
+
+            if not self._FOMC_DOC_RE.search(abs_url):
+                continue
+
+            if abs_url in self.seen_urls:
+                continue
+            self.seen_urls.add(abs_url)
+
+            yield scrapy.Request(abs_url, callback=self.parse_document, meta={"fallback_year": year})
+
+    # -------------------------------------------------
+    # Calendars (modern)
+    # -------------------------------------------------
+    def parse_calendars(self, response):
+        """
+        Modern calendar page has multiple layouts over time.
+        We:
+        - extract all meeting blocks
+        - inside each, follow relevant doc links
+        - infer meeting date when possible (best-effort)
+        """
+        # Try several patterns; we’ll just look for links within the main content.
+        containers = response.css("#article, #content, main, .col-sm-8, .article").getall()
+        if not containers:
+            log_warning("Calendar page: no main containers found; falling back to all links.")
+
+        # Take all candidate links on the page and filter to monetarypolicy paths
+        hrefs = response.css('a::attr(href)').getall()
+        for href in hrefs:
+            if not href:
+                continue
+            abs_url = response.urljoin(href)
+
+            if "federalreserve.gov" not in urlparse(abs_url).netloc:
+                continue
+            if "/monetarypolicy/" not in abs_url:
+                continue
+            if not self._FOMC_DOC_RE.search(abs_url):
+                continue
+
+            # Optional year gating by URL date tokens (YYYYMMDD) or by presence of /fomcYYYY....
+            yr_from_url = self._year_from_url(abs_url)
+            if self.years is not None and yr_from_url and yr_from_url not in self.years:
+                continue
+
+            if abs_url in self.seen_urls:
+                continue
+            self.seen_urls.add(abs_url)
+
+            yield scrapy.Request(abs_url, callback=self.parse_document, meta={"fallback_year": yr_from_url})
+
+    # -------------------------------------------------
+    # Document parser (HTML + PDF link handling)
+    # -------------------------------------------------
     def parse_document(self, response):
-        """Universal parser with binary safety."""
         if self.count >= self.limit:
             return
 
-        content = ""
-        is_pdf = b"application/pdf" in response.headers.get("Content-Type", b"")
+        url = response.url
+        url_l = url.lower()
+
+        # Determine artifact type from URL pattern
+        artifact_type = self._classify_from_url(url_l)
+
+        # Extract title
+        title = (response.css("h1::text").get() or response.css("title::text").get() or "").strip()
+        if not title:
+            title = self._doc_id_from_url(url)
+
+        # Try to find a date on the page (best-effort)
+        date_iso = self._extract_date_iso(response)
+        year_int = int(date_iso[:4]) if date_iso else None
+
+        # If page date missing, fallback to year from URL / meta
+        if year_int is None:
+            fy = response.meta.get("fallback_year")
+            if fy and re.fullmatch(r"\d{4}", str(fy)):
+                year_int = int(fy)
+
+        # If this is a PDF response, let FilesPipeline handle by emitting file_urls
+        content_type = (response.headers.get("Content-Type", b"").decode(errors="ignore") or "").lower()
+        is_pdf = ("application/pdf" in content_type) or url_l.endswith(".pdf")
+
+        doc_id = self._doc_id_from_url(url)
+
+        # Semantic category: these are almost always policy communications
+        category = "policy" if artifact_type in {
+            "statement", "minutes", "transcript", "implementation_note", "projections", "press_release"
+        } else "other"
 
         if is_pdf:
-            # SAFETY CHECK: If pypdf is missing or file is too large, skip to avoid hang
-            if not PdfReader:
-                log_warning(f"PdfReader not found. Skipping PDF: {response.url}")
-                return
-
-            try:
-                # PDF processing can be CPU intensive; we keep it simple to avoid thread lock
-                reader = PdfReader(BytesIO(response.body))
-                # Only extract first 50 pages to prevent infinite loops/hangs on massive docs
-                text_parts = []
-                for i, page in enumerate(reader.pages):
-                    if i > 50:
-                        break
-                    text_parts.append(page.extract_text() or "")
-
-                content = "\n".join(text_parts).strip()
-                title = f"FOMC PDF: {response.url.split('/')[-1]}"
-            except Exception as e:
-                log_error(f"Binary PDF processing failed for {response.url}: {e}")
-                return
-        else:
-            # HTML processing: Focus on the article body
-            # Using .get() preserves the structure for RAG markdown conversion
-            content = response.css("#article, #content, .col-sm-8").get()
-            title = (
-                response.css("h1::text, title::text")
-                .get(default="FOMC Document")
-                .strip()
+            self.count += 1
+            log_info(f"✅ FOMC captured PDF [{artifact_type}/{category}]: {title[:80]}")
+            yield RegcrawlerItem(
+                file_urls=[url],
+                url=url,
+                date=date_iso or "Unknown",
+                year=year_int,
+                title=title,
+                content=f"PDF document: {title}\nSource: {url}",
+                regulator="FED",
+                jurisdiction="US",
+                type=artifact_type,
+                category=category,
+                doc_id=doc_id,
+                spider_name=self.name,
+                ingest_timestamp=datetime.utcnow().isoformat(),
+                source_type="document",
             )
+            return
 
-        if not content or len(content.strip()) < 10:
+        # HTML: extract visible text nodes (exclude script/style)
+        text_nodes = response.xpath(
+            '('
+            '//*[@id="article"] | //*[@id="content"] | //main | //article | //*[@class="article__content"]'
+            ')[1]//text()[normalize-space()'
+            ' and not(ancestor::script)'
+            ' and not(ancestor::style)'
+            ' and not(ancestor::noscript)'
+            ']'
+        ).getall()
+
+        if not text_nodes:
+            # last resort: whole page text
+            text_nodes = response.xpath('//text()[normalize-space() and not(ancestor::script) and not(ancestor::style)]').getall()
+
+        content = "\n".join(t.strip() for t in text_nodes if t and t.strip())
+        content = re.sub(r"\r\n", "\n", content)
+        content = re.sub(r"[ \t]+\n", "\n", content)
+        content = re.sub(r"\n{3,}", "\n\n", content).strip()
+
+        # If HTML page is just a landing page pointing to a PDF, follow/emit that PDF too
+        pdf_href = response.css('a[href$=".pdf"]::attr(href)').get()
+        if pdf_href and len(content) < 400:
+            pdf_url = response.urljoin(pdf_href)
+            if pdf_url not in self.seen_urls:
+                self.seen_urls.add(pdf_url)
+                yield scrapy.Request(pdf_url, callback=self.parse_document, meta={"fallback_year": year_int})
+
+        if not content or len(content) < 40:
+            log_warning(f"Skipping near-empty FOMC page: {url}")
             return
 
         self.count += 1
-
-        # Date Standardization
-        final_date = response.meta.get("date")
-        if not final_date or "Unknown" in final_date:
-            date_match = re.search(r"(\d{4})(\d{2})(\d{2})", response.url)
-            final_date = (
-                "-".join(date_match.groups())
-                if date_match
-                else datetime.now().strftime("%Y-%m-%d")
-            )
+        log_info(f"✅ FOMC captured HTML [{artifact_type}/{category}]: {title[:80]}")
 
         yield RegcrawlerItem(
-            url=response.url,
-            date=final_date,
+            url=url,
+            date=date_iso or "Unknown",
+            year=year_int,
             title=title,
             content=content,
-            type=response.meta.get("doc_type", "other"),
-            regulator="Federal Reserve",
+            regulator="FED",
             jurisdiction="US",
-            doc_id=response.url.split("/")[-1].split(".")[0],
+            type=artifact_type,
+            category=category,
+            doc_id=doc_id,
             spider_name=self.name,
             ingest_timestamp=datetime.utcnow().isoformat(),
+            source_type="web_page",
         )
 
-    def _classify_doc(self, url, text):
-        """Standardizes document categories."""
-        if "minutes" in url or "minutes" in text:
+    # -------------------------------------------------
+    # Helpers
+    # -------------------------------------------------
+    def _classify_from_url(self, url_l: str) -> str:
+        if "minutes" in url_l or "fomcminutes" in url_l:
             return "minutes"
-        if "monetary" in url or "statement" in text:
-            return "statement"
-        if "implementation" in url or "note" in text:
+        if "pressconf" in url_l or "presconf" in url_l:
+            return "transcript"
+        if "implementationnote" in url_l or "implementation" in url_l:
             return "implementation_note"
-        if "projtabl" in url or "projection" in text:
+        if "projtabl" in url_l or "projection" in url_l:
             return "projections"
+        if "statement" in url_l or "monetarypolicy" in url_l and "statement" in url_l:
+            return "statement"
+        if "pressreleases" in url_l or "pressrelease" in url_l:
+            return "press_release"
         return "other"
 
-    def parse_year(self, response):
-        """Handle historical year pages (e.g. 2018 and older)."""
-        links = response.css(
-            'a[href*="monetary"], a[href*="minutes"]::attr(href)'
-        ).getall()
-        for link in set(links):
-            yield response.follow(
-                link,
-                callback=self.parse_document,
-                meta={"doc_type": "historical_archive"},
+    def _doc_id_from_url(self, url: str) -> str:
+        try:
+            path = urlparse(url).path.rstrip("/")
+            fname = path.split("/")[-1] if path else ""
+            if fname.lower().endswith(".htm") or fname.lower().endswith(".html"):
+                fname = re.sub(r"\.html?$", "", fname, flags=re.I)
+            if fname.lower().endswith(".pdf"):
+                fname = fname[:-4]
+            return fname or "unknown_id"
+        except Exception:
+            return "unknown_id"
+
+    def _year_from_url(self, url: str) -> str | None:
+        # Look for YYYYMMDD in URL
+        m = re.search(r"\b(20\d{2})(\d{2})(\d{2})\b", url)
+        if m:
+            return m.group(1)
+        # Look for explicit year in filename
+        m = re.search(r"\b(20\d{2})\b", url)
+        if m:
+            return m.group(1)
+        return None
+
+    def _extract_date_iso(self, response) -> str | None:
+        # Try common fed patterns
+        date_text = (
+            response.xpath('normalize-space(//time/@datetime)').get()
+            or response.xpath('normalize-space(//time/text())').get()
+            or response.css(".date::text, .article__time::text").get()
+        )
+        if not date_text:
+            # sometimes date is near title / in meta tags
+            date_text = (
+                response.xpath('normalize-space(//meta[@property="article:published_time"]/@content)').get()
+                or response.xpath('normalize-space(//meta[@name="date"]/@content)').get()
+                or response.xpath('normalize-space(//meta[@name="DC.date"]/@content)').get()
             )
+        if not date_text:
+            # URL token fallback
+            m = re.search(r"\b(20\d{2})(\d{2})(\d{2})\b", response.url)
+            if m:
+                return f"{m.group(1)}-{m.group(2)}-{m.group(3)}"
+            return None
+
+        return self._parse_date(date_text)
+
+    def _parse_date(self, s: str | None) -> str | None:
+        if not s:
+            return None
+        s = str(s).strip()
+        if not s:
+            return None
+
+        try:
+            return datetime.fromisoformat(s.replace("Z", "+00:00")).date().isoformat()
+        except Exception:
+            pass
+
+        for fmt in ("%Y-%m-%d", "%B %d, %Y", "%b %d, %Y", "%m/%d/%Y", "%d %b %Y", "%d %B %Y"):
+            try:
+                return datetime.strptime(s, fmt).date().isoformat()
+            except Exception:
+                continue
+
+        # last resort: year only
+        m = re.search(r"\b(20\d{2})\b", s)
+        if m:
+            return f"{m.group(1)}-01-01"
+        return None

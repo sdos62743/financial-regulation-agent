@@ -6,12 +6,10 @@ Standardized for Python 3.11 and high-concurrency (300 RPM).
 """
 
 import asyncio
-import logging
 import os
 import traceback
 from typing import Any, Dict
 
-# Using the builder from your graph module
 from graph.builder import app as graph_app
 from graph.state import AgentState
 from observability.logger import log_error, log_info, log_warning
@@ -26,17 +24,26 @@ class RAGController:
     def __init__(self):
         log_info("🚀 [Controller] RAGController initialized - LangGraph engine ready")
 
+    @staticmethod
+    def _pick_final_answer(result: Dict[str, Any]) -> str:
+        """
+        Canonical answer selection.
+        Prefer final_output (LangGraph terminal output), then synthesized_response, then response.
+        """
+        for key in ("final_output", "synthesized_response", "response"):
+            val = result.get(key)
+            if isinstance(val, str) and val.strip():
+                return val.strip()
+
+        return "I apologize, but I couldn't generate a specific answer. Please try rephrasing."
+
     async def ask(
         self,
         query: str,
         thread_id: str = "default",
-        timeout: float = 60.0,  # Tier 1: 60s is standard; 120s is too slow for web
+        timeout: float = 60.0,
     ) -> Dict[str, Any]:
-        """
-        Process a user query through the full agent graph.
-        Ensures the first step is 'classify_intent'.
-        """
-        query = query.strip()
+        query = (query or "").strip()
 
         if not query:
             log_warning("⚠️ [Controller] Empty query received")
@@ -53,49 +60,48 @@ class RAGController:
             f"🧠 [Controller] Invoking Graph | thread_id={thread_id} | query='{query[:50]}...'"
         )
 
-        # Prepare initial state (Mapping keys for 2026 consistency)
         initial_state: AgentState = {
             "query": query,
-            "intent": "classify_intent",  # Explicitly flagging the first logical step
+            "intent": "classify_intent",
             "plan": [],
-            "documents": [],
+            "filters": {},             # ✅ required by state
+            "retrieved_docs": [],      # ✅ correct key
             "tool_outputs": [],
             "response": "",
             "synthesized_response": "",
             "validation_result": False,
             "iterations": 0,
+            "final_output": "",
         }
-
         config = {"configurable": {"thread_id": thread_id}}
 
         try:
-            # Tier 1 execution: use ainvoke for the full state return
-            # wait_for ensures we don't hang the worker indefinitely
             result = await asyncio.wait_for(
-                graph_app.ainvoke(initial_state, config=config), timeout=timeout
+                graph_app.ainvoke(initial_state, config=config),
+                timeout=timeout,
             )
 
-            # Mapping logic to resolve the final response string
-            final_answer = (
-                result.get("synthesized_response")
-                or result.get("response")
-                or "I apologize, but I couldn't generate a specific answer. Please try rephrasing."
-            )
+            final_answer = self._pick_final_answer(result)
+
+            # If the graph produced any non-empty answer string, it's success,
+            # even if validation_result=False (clarifying question path).
+            success = bool(final_answer and final_answer.strip())
+            # Optionally keep validation_result exposed for UI/debug:
+            validation = bool(result.get("validation_result", False))
 
             log_info(f"✅ [Controller] Graph Success | thread_id={thread_id}")
 
             return {
-                "answer": final_answer,  # Renamed to 'answer' for index.html marked() compatibility
-                "synthesized_response": final_answer,
-                "documents": result.get("documents", []),
+                "answer": final_answer,
+                "final_output": result.get("final_output", ""),
+                "synthesized_response": result.get("synthesized_response", ""),
+                "response": result.get("response", ""),
+                "validation_result": validation,
                 "thread_id": thread_id,
-                "success": True,
+                "success": success,
             }
-
         except asyncio.TimeoutError:
-            log_error(
-                f"⏱️ [Controller] Timeout after {timeout}s | thread_id={thread_id}"
-            )
+            log_error(f"⏱️ [Controller] Timeout after {timeout}s | thread_id={thread_id}")
             return {
                 "error": "The analysis took too long for a live response. Please try a narrower query.",
                 "answer": "**Timeout Error:** Analysis limit reached.",
@@ -105,8 +111,6 @@ class RAGController:
         except Exception as e:
             error_trace = traceback.format_exc()
             log_error(f"❌ [Controller] Graph Failure: {str(e)}", thread_id=thread_id)
-
-            # Tier 1: We return a clean error to the UI but keep the trace in the logs
             return {
                 "error": f"Internal Engine Error: {str(e)}",
                 "answer": "### System Error\nThe Intelligence Engine encountered a failure. Our team has been notified.",

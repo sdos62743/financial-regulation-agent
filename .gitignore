@@ -63,6 +63,7 @@ scrapy.cfg
 *~
 .DS_Store
 Thumbs.db
+uv.lock
 
 # Testing
 .pytest_cache/

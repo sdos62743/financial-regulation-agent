@@ -36,7 +36,12 @@ async def merge_outputs(state: AgentState) -> Dict[str, Any]:
         content = getattr(doc, "page_content", "")
         metadata = getattr(doc, "metadata", {})
 
-        source = metadata.get("source", "Regulatory Document")
+        source = (
+            metadata.get("url")
+            or metadata.get("doc_id")
+            or metadata.get("source")
+            or "Regulatory Document"
+        )
         regulator = metadata.get("regulator", "N/A")
 
         doc_entries.append(
@@ -70,12 +75,17 @@ async def merge_outputs(state: AgentState) -> Dict[str, Any]:
         # 4. BACKGROUND TASKS
         asyncio.create_task(_record_merge_metrics(llm, response))
 
-        return {"synthesized_response": final_response}
-
+        return {
+            "synthesized_response": final_response,
+            "final_output": final_response,  # ✅ canonical output unless critic overrides
+        }
     except Exception as e:
         log_error(f"❌ [Merge Node] Failure: {e}", exc_info=True)
         return {
-            "synthesized_response": "I encountered an error while preparing the final analysis. Please try again."
+            "synthesized_response": (
+                "I encountered an error while preparing the final analysis. "
+                "Please try again."
+            )
         }
 
 

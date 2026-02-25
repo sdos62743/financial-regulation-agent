@@ -6,8 +6,6 @@ Focuses on passing full Document objects for Synthesis Node compatibility.
 
 from typing import Any, Dict
 
-from langchain_core.documents import Document
-
 from graph.state import AgentState
 from observability.logger import log_error, log_info, log_warning
 from retrieval.hybrid_search import hybrid_search

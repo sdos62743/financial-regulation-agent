@@ -41,7 +41,10 @@ async def direct_response(state: AgentState) -> Dict[str, Any]:
     except Exception as e:
         log_error(f"❌ [Direct Response] failed: {e}")
         return {
-            "final_output": "Hello! I'm ready to help with your financial regulation questions. What's on your mind?"
+            "final_output": (
+                "Hello! I'm ready to help with your financial regulation questions. "
+                "What's on your mind?"
+            )
         }
 
 

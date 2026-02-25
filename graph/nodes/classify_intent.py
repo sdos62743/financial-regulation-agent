@@ -23,25 +23,40 @@ class IntentSchema(BaseModel):
 
 
 def _get_heuristic_intent(query: str) -> str:
-    """Fallback logic when LLM is unavailable (503)."""
     q = query.lower()
-    # High-priority keywords for regulatory lookup
-    if any(
-        word in q
-        for word in [
-            "basel",
-            "rule",
-            "regulation",
-            "section",
-            "cftc",
-            "sec",
-            "document",
-        ]
-    ):
+
+    regulatory_words = [
+        "basel",
+        "bcbs",
+        "cftc",
+        "sec",
+        "federal reserve",
+        "fed",
+        "fomc",
+        "rule",
+        "regulation",
+        "regulatory",
+        "guidance",
+        "policy",
+        "framework",
+        "press release",
+        "speech",
+        "testimony",
+        "minutes",
+        "transcript",
+        "statement",
+        "projections",
+        "meeting",
+        "document",
+        "filing",
+        "enforcement",
+    ]
+    if any(w in q for w in regulatory_words):
         return "regulatory_lookup"
-    # Basic reasoning/analysis keywords
+
     if any(word in q for word in ["why", "compare", "impact", "explain"]):
         return "reasoning"
+
     return "other"
 
 
@@ -56,12 +71,11 @@ async def classify_intent(state: AgentState) -> Dict[str, Any]:
         llm = get_llm()
 
         # 2. Structured output with safety
-        # include_raw=True gives us access to token usage even on success
         structured_llm = llm.with_structured_output(IntentSchema, include_raw=True)
 
         classify_prompt = load_prompt("classify_intent")
 
-        # 🔹 Execution
+        # Execution
         response = await (classify_prompt | structured_llm).ainvoke({"query": query})
 
         # 3. Parsing
@@ -74,7 +88,7 @@ async def classify_intent(state: AgentState) -> Dict[str, Any]:
             log_warning("LLM returned success but failed parsing. Using heuristic.")
             intent = fallback_intent
 
-        # 4. Token logging (Safely handled)
+        # 4. Token logging
         try:
             metadata = getattr(raw_message, "response_metadata", {}) or {}
             token_usage = (
@@ -96,7 +110,6 @@ async def classify_intent(state: AgentState) -> Dict[str, Any]:
         return {"intent": intent}
 
     except Exception as e:
-        # This catches the 503 UNAVAILABLE error
         log_error(f"❌ Classification API failure: {e}")
         log_info(f"⚠️ Resilience: Falling back to heuristic intent: {fallback_intent}")
         return {"intent": fallback_intent}

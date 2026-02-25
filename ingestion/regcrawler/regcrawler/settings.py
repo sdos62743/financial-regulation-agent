@@ -53,7 +53,6 @@ ITEM_PIPELINES = {
 # =============================================================================
 DOWNLOADER_MIDDLEWARES = {
     # High priority for Selenium to ensure JS renders before other processing
-    "regcrawler.middlewares.SeleniumMiddleware": 800,
     "regcrawler.middlewares.RegcrawlerDownloaderMiddleware": 543,
 }
 

@@ -4,7 +4,6 @@ Structured Extraction Node - Tier 1 Optimized
 """
 
 import asyncio
-import json
 from typing import Any, Dict
 
 from pydantic import BaseModel, Field

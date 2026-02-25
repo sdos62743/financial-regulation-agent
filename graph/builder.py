@@ -25,6 +25,45 @@ from .nodes.router import route_query
 from .nodes.structured import structured_extraction
 from .nodes.validation import validate_response
 
+def finalize_response(state: AgentState) -> AgentState:
+    """
+    Ensures we always return a safe final_output at END.
+    Prevents stale synthesized_response from leaking when validation fails.
+    """
+    is_valid = bool(state.get("validation_result", False))
+
+    # Prefer existing final_output if present
+    final_output = (state.get("final_output") or "").strip()
+    if final_output:
+        return {"final_output": final_output}
+
+    # If invalid, force a safe user-facing message
+    if not is_valid:
+        query = (state.get("query") or "").strip()
+        msg = (
+            "I can’t confirm that answer from the retrieved documents. "
+            "Please specify which regulator/meeting series you mean (e.g., FOMC, Basel, CFTC, SEC), "
+            "or add a keyword like 'FOMC minutes' or 'Basel meeting'."
+        )
+
+        # Optional: tailor slightly if the query mentions “meeting”
+        if "meeting" in query.lower():
+            msg = (
+                "Which meeting series do you mean (e.g., FOMC, Basel Committee, CFTC, SEC)? "
+                "I can then pull the most recent related documents."
+            )
+
+        # IMPORTANT: clear stale draft fields so controller can’t display them
+        return {
+            "final_output": msg,
+            "synthesized_response": "",
+            "response": "",
+        }
+
+    # Valid but no final_output: fallback to synthesized/response
+    synthesized = (state.get("synthesized_response") or "").strip()
+    response = (state.get("response") or "").strip()
+    return {"final_output": synthesized or response or "I couldn’t generate an answer. Please rephrase."}
 
 async def call_tools(state: AgentState) -> AgentState:
     """Tool Calling Node - Executes tools mentioned in the plan"""
@@ -99,6 +138,8 @@ graph.add_node("calculation_node", perform_calculation)
 graph.add_node("synthesis_node", merge_outputs)
 graph.add_node("critic_node", validate_response)
 graph.add_node("direct_response_node", direct_response)
+graph.add_node("finalize_node", finalize_response)
+
 
 # ==================== ORIGINAL FLOW (Commented) ====================
 # graph.add_edge(START, "intent_node")
@@ -131,8 +172,11 @@ graph.add_edge("synthesis_node", "critic_node")
 
 # --- Validation with loop control ---
 graph.add_conditional_edges(
-    "critic_node", decide_end, {"planner_node": "planner_node", END: END}
+    "critic_node",
+    decide_end,
+    {"planner_node": "planner_node", END: "finalize_node"}
 )
+graph.add_edge("finalize_node", END)
 
 # Compile the final runnable graph
 app = graph.compile()
