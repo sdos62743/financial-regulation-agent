@@ -1,12 +1,10 @@
-import os
-import re
 from datetime import datetime
 from io import BytesIO
 
 import scrapy
 from pypdf import PdfReader
 
-from observability.logger import log_error, log_info
+from observability.logger import log_error
 
 from ..items import RegcrawlerItem
 
@@ -29,15 +27,19 @@ class SecRulesSpider(scrapy.Spider):
 
     def start_requests(self):
         base_templates = [
-            "https://www.sec.gov/rules-regulations/final?year={year}&month=All&order=field_publish_date&sort=desc",
-            "https://www.sec.gov/rules-regulations/proposed?year={year}&month=All&order=field_publish_date&sort=desc",
-            "https://www.sec.gov/rules-regulations/other?year={year}&month=All&order=field_publish_date&sort=desc",
-            "https://www.sec.gov/rules-regulations/sro?year={year}&month=All&order=field_publish_date&sort=desc",
+            "https://www.sec.gov/rules-regulations/final"
+            "?year={year}&month=All&order=field_publish_date&sort=desc",
+            "https://www.sec.gov/rules-regulations/proposed"
+            "?year={year}&month=All&order=field_publish_date&sort=desc",
+            "https://www.sec.gov/rules-regulations/other"
+            "?year={year}&month=All&order=field_publish_date&sort=desc",
+            "https://www.sec.gov/rules-regulations/sro"
+            "?year={year}&month=All&order=field_publish_date&sort=desc",
         ]
 
-        for year in self.years:
+        for yr in self.years:
             for template in base_templates:
-                url = template.format(year=year)
+                url = template.format(year=yr)
                 # Determine doc_type_prefix from URL
                 if "final" in url:
                     prefix = "final_rule"
@@ -51,12 +53,11 @@ class SecRulesSpider(scrapy.Spider):
                 yield scrapy.Request(
                     url=url,
                     callback=self.parse_list,
-                    meta={"doc_type_prefix": prefix, "year": year},
+                    meta={"doc_type_prefix": prefix, "year": yr},
                 )
 
     def parse_list(self, response):
         doc_type_prefix = response.meta["doc_type_prefix"]
-        year = response.meta.get("year", "Unknown")
 
         # 1. Handle Pagination (Modern CSS approach)
         next_page = response.css("li.pager__item--next a::attr(href)").get()

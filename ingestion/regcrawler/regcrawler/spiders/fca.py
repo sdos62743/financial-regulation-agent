@@ -4,7 +4,7 @@ from datetime import datetime
 
 import scrapy
 
-from observability.logger import log_error, log_info
+from observability.logger import log_error
 
 from ..items import RegcrawlerItem
 

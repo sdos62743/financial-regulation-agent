@@ -1,13 +1,10 @@
-import os
-import re
 from datetime import datetime
 from io import BytesIO
-from urllib.parse import parse_qs, urlencode, urljoin, urlparse, urlunparse
 
 import scrapy
 from pypdf import PdfReader
 
-from observability.logger import log_error, log_info
+from observability.logger import log_error
 
 from ..items import RegcrawlerItem
 
@@ -30,8 +27,10 @@ class SecEnforceSpider(scrapy.Spider):
 
     def start_requests(self):
         base_templates = [
-            "https://www.sec.gov/litigation/litreleases.htm?year={year}&month=All&order=field_publish_date&sort=desc",
-            "https://www.sec.gov/enforcement-litigation/administrative-proceedings?year={year}&month=All&order=field_publish_date&sort=desc",
+            "https://www.sec.gov/litigation/litreleases.htm"
+            "?year={year}&month=All&order=field_publish_date&sort=desc",
+            "https://www.sec.gov/enforcement-litigation/administrative-proceedings"
+            "?year={year}&month=All&order=field_publish_date&sort=desc",
         ]
 
         for year in self.years:

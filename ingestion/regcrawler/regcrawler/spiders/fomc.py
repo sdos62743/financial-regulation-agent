@@ -6,10 +6,9 @@ from io import BytesIO
 
 import scrapy
 
-# Standardized Imports
-from regcrawler.items import RegcrawlerItem
+from observability.logger import log_error, log_warning
 
-from observability.logger import log_error, log_info, log_warning
+from ..items import RegcrawlerItem
 
 # Attempt to import PdfReader, but handle failure gracefully
 try:

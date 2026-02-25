@@ -40,7 +40,7 @@ help:
 	@echo "Utilities:"
 	@echo "  make count-db            # Doc counts by regulator, type, spider"
 	@echo "  make check-db            # Chroma health: count, peek 5 docs, similarity test"
-	@echo "  make diagnose-db        # Sample metadata inspection (Chroma)"
+	@echo "  make diagnose-db        # Chroma metadata + CFTC sample inspection"
 	@echo "  make logs               # Tail agent log"
 	@echo "  make logs-list           # Log locations + Scrapy tail"
 	@echo ""
@@ -114,10 +114,13 @@ check-db:
 	@echo "🔍 Chroma health check..."
 	@python3.11 scripts/check_db.py
 
-# diagnose-db: Inspect sample document metadata in Chroma (for debugging ingestion)
+# diagnose-db: Inspect sample document metadata in Chroma + CFTC-specific check (for debugging ingestion)
 diagnose-db:
 	@echo "🔍 Chroma metadata diagnostic..."
 	@python3.11 scripts/diagnose_chroma.py
+	@echo ""
+	@echo "🔍 CFTC document check..."
+	@python3.11 scripts/check_cftc.py
 
 # all: Full pipeline — scrape all spiders, then ingest into vector store
 all: scrape ingest

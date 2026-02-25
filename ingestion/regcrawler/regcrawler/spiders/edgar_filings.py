@@ -5,7 +5,7 @@ from io import BytesIO
 import scrapy
 from pypdf import PdfReader
 
-from observability.logger import log_error, log_info
+from observability.logger import log_error
 
 from ..items import RegcrawlerItem
 
@@ -78,7 +78,10 @@ class EdgarFilingsSpider(scrapy.Spider):
                 primary_doc = recent["primaryDocument"][i]
 
                 # Construct the direct URL to the document
-                doc_url = f"https://www.sec.gov/Archives/edgar/data/{int(self.cik)}/{accession}/{primary_doc}"
+                doc_url = (
+                    f"https://www.sec.gov/Archives/edgar/data/"
+                    f"{int(self.cik)}/{accession}/{primary_doc}"
+                )
 
                 yield scrapy.Request(
                     doc_url,

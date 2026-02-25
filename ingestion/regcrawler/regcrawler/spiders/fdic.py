@@ -4,10 +4,9 @@ from datetime import datetime
 
 import scrapy
 
-# Absolute import as requested
-from regcrawler.items import RegcrawlerItem
+from observability.logger import log_error, log_warning
 
-from observability.logger import log_error, log_info
+from ..items import RegcrawlerItem
 
 
 class FdicSpider(scrapy.Spider):

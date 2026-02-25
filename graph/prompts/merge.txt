@@ -21,6 +21,6 @@ Tool Outputs / Calculations:
 - If tool calculations contradict a document, mention the discrepancy and prioritize the calculation.
 - Be direct and factual. Avoid phrases like "I believe", "It appears", or "Based on my knowledge".
 - If information is missing or uncertain, clearly state it.
-- Keep the response professional, neutral, and concise (ideally under 400 words).
+- Keep the response professional, neutral, and concise (ideally under 10000 words).
 
 Final Response:

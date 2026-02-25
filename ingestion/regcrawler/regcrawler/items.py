@@ -1,8 +1,7 @@
 import scrapy
 
-
 class RegcrawlerItem(scrapy.Item):
-    # Core Scrapy fields
+    # --- CORE SCRAPY & FILE FIELDS ---
     file_urls = scrapy.Field()
     files = scrapy.Field()
     title = scrapy.Field()
@@ -12,11 +11,18 @@ class RegcrawlerItem(scrapy.Item):
     spider_name = scrapy.Field()
     ingest_timestamp = scrapy.Field()
 
-    # --- METADATA FIELDS (Required for Search) ---
-    year = scrapy.Field()  # Integer year
-    jurisdiction = scrapy.Field()  # e.g., "Global"
-    type = scrapy.Field()  # e.g., "policy_document"
+    # --- CONTENT FIELD ---
+    content = scrapy.Field()
 
-    # --- PIPELINE FIELDS (The ones causing your crash) ---
-    attached_pdfs = scrapy.Field()  # The pipeline uses this to track downloads
-    doc_id = scrapy.Field()  # Unique identifier
+    # --- METADATA FIELDS ---
+    year = scrapy.Field()
+    jurisdiction = scrapy.Field()
+
+    # ✅ Approach A fields
+    type = scrapy.Field()          # artifact kind
+    category = scrapy.Field()      # semantic category
+    source_type = scrapy.Field()   # "web_page" | "document"
+
+    # --- PIPELINE FIELDS ---
+    attached_pdfs = scrapy.Field()
+    doc_id = scrapy.Field()
