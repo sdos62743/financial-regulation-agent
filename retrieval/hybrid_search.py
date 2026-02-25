@@ -37,6 +37,7 @@ from langchain_community.retrievers import BM25Retriever
 from langchain_core.documents import Document
 
 from observability.logger import log_error, log_info, log_warning
+
 from .vector_store import get_vector_store
 
 DEFAULT_TOP_K = int(os.getenv("HYBRID_TOP_K", 8))

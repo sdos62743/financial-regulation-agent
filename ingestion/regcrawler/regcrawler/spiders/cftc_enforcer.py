@@ -5,7 +5,9 @@ from datetime import datetime
 from urllib.parse import urlparse
 
 import scrapy
+
 from observability.logger import log_info, log_warning
+
 from ..items import RegcrawlerItem
 
 
@@ -233,7 +235,7 @@ class CftcEnforceSpider(scrapy.Spider):
     # -------------------------------------------------
     def _normalize_url(self, url: str) -> str:
         try:
-            from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
+            from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
             parts = urlsplit(url)
             qs = parse_qsl(parts.query, keep_blank_values=True)

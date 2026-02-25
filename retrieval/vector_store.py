@@ -14,6 +14,7 @@ from langchain_community.vectorstores.utils import filter_complex_metadata
 from langchain_core.documents import Document
 
 from observability.logger import log_error, log_info, log_warning
+
 from .embeddings import get_embeddings
 
 

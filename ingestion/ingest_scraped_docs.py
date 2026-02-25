@@ -41,11 +41,11 @@ from langchain_core.documents import Document  # noqa: E402
 
 from observability.logger import log_error, log_info, log_warning  # noqa: E402
 from retrieval.chunking import get_text_splitter  # noqa: E402
-from retrieval.vector_store import (
+from retrieval.vector_store import (  # noqa: E402
     add_documents,
     clear_collection,
     get_collection_count,
-)  # noqa: E402
+)
 
 _YEAR_RE = re.compile(r"\b(19\d{2}|20\d{2})\b")
 
