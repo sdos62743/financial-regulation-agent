@@ -25,6 +25,7 @@ from .nodes.router import route_query
 from .nodes.structured import structured_extraction
 from .nodes.validation import validate_response
 
+
 def finalize_response(state: AgentState) -> AgentState:
     """
     Ensures we always return a safe final_output at END.
@@ -64,6 +65,7 @@ def finalize_response(state: AgentState) -> AgentState:
     synthesized = (state.get("synthesized_response") or "").strip()
     response = (state.get("response") or "").strip()
     return {"final_output": synthesized or response or "I couldn’t generate an answer. Please rephrase."}
+
 
 async def call_tools(state: AgentState) -> AgentState:
     """Tool Calling Node - Executes tools mentioned in the plan"""

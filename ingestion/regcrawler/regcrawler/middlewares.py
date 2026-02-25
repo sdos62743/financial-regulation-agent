@@ -1,4 +1,5 @@
 from urllib.parse import urlparse
+from observability.logger import log_error, log_info, log_warning
 
 class RegcrawlerDownloaderMiddleware:
     @classmethod
