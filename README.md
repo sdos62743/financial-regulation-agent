@@ -34,7 +34,7 @@ Built with **LangGraph**, **LangChain**, **Scrapy**, **Chroma**, and **FastAPI**
 
 ## Agent Flow
 
-<img src="langgraph.png" alt="LangGraph Architecture" width="1200" />
+<img src="langgraph.png" alt="LangGraph Architecture" width="900" />
 
 ---
 
@@ -149,7 +149,6 @@ make docker-shell          # Bash in agent container
 
 # Maintenance
 make ci                    # Run all CI checks locally (lint, test, security)
-make langgraph-png         # Regenerate langgraph.png
 make clean                 # clean-scraped + clean-logs + clean-cache
 make clean-scraped         # Remove data/scraped/*.json
 make clean-logs            # Remove logs/*

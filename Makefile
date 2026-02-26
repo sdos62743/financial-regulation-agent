@@ -4,7 +4,7 @@
 
 .PHONY: help scrape ingest ingest-structured all docker-up docker-down \
         docker-logs docker-build docker-shell clean clean-scraped clean-logs clean-cache clean-db check-db diagnose-db test shell spiders \
-        logs logs-list chat web web-dev count-db benchmark evaluate langgraph-png ci
+        logs logs-list chat web web-dev count-db benchmark evaluate ci
 
 # Optional parameters (passed only if explicitly set)
 LIMIT  ?=
@@ -68,7 +68,6 @@ help:
 	@echo "  make clean-db            # Chroma collections (interactive)"
 	@echo "  make test                # Run pytest"
 	@echo "  make ci                  # Run all CI checks locally (lint, test, security)"
-	@echo "  make langgraph-png       # Regenerate langgraph.png (requires network)"
 	@echo "  make shell               # Bash with venv"
 	@echo "══════════════════════════════════════════════════════════════"
 
@@ -254,15 +253,6 @@ test:
 ci:
 	@chmod +x scripts/run_ci_checks.sh
 	@./scripts/run_ci_checks.sh all
-
-# langgraph-png: Regenerate langgraph.png (script is local-only, not in repo)
-langgraph-png:
-	@if [ -f scripts/generate_langgraph_png.py ]; then \
-		echo "📊 Generating langgraph.png..."; \
-		python3.11 scripts/generate_langgraph_png.py; \
-	else \
-		echo "⚠️ scripts/generate_langgraph_png.py not found (local-only)"; \
-	fi
 
 # shell: Open bash with venv activated
 shell:
