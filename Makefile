@@ -255,10 +255,14 @@ ci:
 	@chmod +x scripts/run_ci_checks.sh
 	@./scripts/run_ci_checks.sh all
 
-# langgraph-png: Regenerate langgraph.png from the compiled graph (uses mermaid.ink API)
+# langgraph-png: Regenerate langgraph.png (script is local-only, not in repo)
 langgraph-png:
-	@echo "📊 Generating langgraph.png..."
-	python3.11 scripts/generate_langgraph_png.py
+	@if [ -f scripts/generate_langgraph_png.py ]; then \
+		echo "📊 Generating langgraph.png..."; \
+		python3.11 scripts/generate_langgraph_png.py; \
+	else \
+		echo "⚠️ scripts/generate_langgraph_png.py not found (local-only)"; \
+	fi
 
 # shell: Open bash with venv activated
 shell:

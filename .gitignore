@@ -94,3 +94,11 @@ temp/
 
 # LangChain / Chroma cache
 .chroma/
+
+# Local / generated (not for commit)
+IMPROVEMENTS.md
+improvements.md
+langgraph.mmd
+scripts/generate_langgraph_png.py
+.flake8
+.pylintrc

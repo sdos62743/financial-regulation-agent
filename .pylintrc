@@ -1,5 +1,0 @@
-[FORMAT]
-max-line-length=88
-
-[MESSAGES_CONTROL]
-disable=missing-module-docstring,missing-class-docstring,missing-function-docstring,bare-except,broad-except,line-too-long
