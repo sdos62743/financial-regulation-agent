@@ -2,7 +2,7 @@
 """
 Generate langgraph.png from the compiled LangGraph.
 Uses mermaid.ink API (requires network) or pygraphviz (requires: brew install graphviz, pip install pygraphviz).
-Resizes output to max_width for smaller file size and display.
+Keeps full resolution; no resize. Uses Mermaid config for less cluttered layout.
 """
 
 import sys
@@ -13,26 +13,17 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from graph.builder import app
 
-# Target max width for the diagram (keeps aspect ratio)
-MAX_WIDTH = 500
-
-
-def _resize_if_needed(path: Path) -> None:
-    """Resize PNG to max_width if Pillow available."""
-    try:
-        from PIL import Image
-
-        with Image.open(path) as im:
-            w, h = im.size
-            if w <= MAX_WIDTH:
-                return
-            ratio = MAX_WIDTH / w
-            new_h = int(h * ratio)
-            resized = im.resize((MAX_WIDTH, new_h), Image.Resampling.LANCZOS)
-            resized.save(path, optimize=True)
-            print(f"   Resized {w}×{h} → {MAX_WIDTH}×{new_h}")
-    except ImportError:
-        pass
+# Mermaid flowchart config: spacing + larger wrappingWidth for bigger render
+FRONTMATTER_CONFIG = {
+    "config": {
+        "flowchart": {
+            "nodeSpacing": 90,
+            "rankSpacing": 80,
+            "diagramPadding": 40,
+            "wrappingWidth": 280,
+        }
+    }
+}
 
 
 def main():
@@ -43,13 +34,12 @@ def main():
     try:
         result = g.draw_png(output_file_path=str(output))
         if result or output.exists():
-            _resize_if_needed(output)
             print(f"✅ Generated {output} (pygraphviz)")
             return 0
     except ImportError:
         pass
 
-    # 2. Try draw_mermaid_png (mermaid.ink API)
+    # 2. Try draw_mermaid_png (mermaid.ink API) with layout config
     try:
         from langchain_core.runnables.graph_mermaid import MermaidDrawMethod
 
@@ -58,9 +48,10 @@ def main():
             draw_method=MermaidDrawMethod.API,
             max_retries=3,
             retry_delay=2.0,
+            frontmatter_config=FRONTMATTER_CONFIG,
+            wrap_label_n_words=12,
         )
         if result and output.exists():
-            _resize_if_needed(output)
             print(f"✅ Generated {output} (mermaid.ink)")
             return 0
     except Exception as e:

@@ -48,11 +48,15 @@ class AgentState(TypedDict):
     # Route chosen by router_node: "rag" | "structured" | "calculation" | "other"
     # Used to branch after retrieval (tools vs structured vs calculation)
     route: NotRequired[str]
+    # CRAG: Retrieval quality from evaluator - "correct" | "ambiguous" | "incorrect"
+    retrieval_confidence: NotRequired[str]
 
     # Retrieval & Tool Results
     # Using Annotated + operator.add ensures that if multiple nodes
     # find documents or tool results, they are all preserved in a list.
     retrieved_docs: Annotated[List[Dict[str, Any]], operator.add]
+    # CRAG: When decompose-recompose runs, refined_docs overrides retrieved_docs for synthesis
+    refined_docs: NotRequired[List[Any]]
     tool_outputs: Annotated[List[Dict[str, Any]], operator.add]
 
     # Synthesis & Validation

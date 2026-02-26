@@ -1,0 +1,16 @@
+You are a retrieval quality evaluator for a financial regulation Q&A system.
+
+Task: Assess whether the retrieved documents are sufficient to answer the user's query.
+
+User Query:
+{query}
+
+Retrieved Documents (first 500 chars each):
+{docs_preview}
+
+Output EXACTLY one of:
+- correct: Documents are relevant and sufficient to answer the query.
+- ambiguous: Documents are partially relevant; key info may be buried in noise.
+- incorrect: Documents are irrelevant, empty, or cannot support a reliable answer.
+
+Respond with ONLY the single word: correct, ambiguous, or incorrect.

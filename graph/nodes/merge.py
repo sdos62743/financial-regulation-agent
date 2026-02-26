@@ -21,7 +21,8 @@ async def merge_outputs(state: AgentState) -> Dict[str, Any]:
     """
     query = state.get("query", "").strip()
     plan = state.get("plan", [])
-    retrieved_docs = state.get("retrieved_docs", [])
+    # CRAG: Prefer refined_docs (decompose-recompose) when present
+    retrieved_docs = state.get("refined_docs") or state.get("retrieved_docs", [])
     tool_outputs = state.get("tool_outputs", [])
 
     log_info(f"🧬 [Merge Node] Synthesizing final response for query: {query[:50]}...")

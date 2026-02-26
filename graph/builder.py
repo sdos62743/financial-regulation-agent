@@ -23,6 +23,7 @@ from tools.registry import ToolRegistry
 # Import production nodes
 from .nodes.calculation import perform_calculation
 from .nodes.classify_intent import classify_intent
+from .nodes.crag import crag_reject, decompose_recompose, evaluate_retrieval
 from .nodes.direct_response import direct_response
 from .nodes.extract_filters import extract_filters
 from .nodes.merge import merge_outputs
@@ -114,6 +115,16 @@ def route_after_retrieval(state: AgentState) -> str:
     return "tools_node" if has_tool_steps else "synthesis_node"
 
 
+def route_after_crag(state: AgentState) -> str:
+    """CRAG: Branch based on retrieval confidence. Incorrect → reject; ambiguous → refine."""
+    confidence = state.get("retrieval_confidence", "correct")
+    if confidence == "incorrect":
+        return "crag_reject_node"
+    if confidence == "ambiguous":
+        return "decompose_recompose_node"
+    return route_after_retrieval(state)
+
+
 def decide_end(state: AgentState) -> str:
     """Critic Decision - Controls validation loop with max iterations safety."""
     is_valid = state.get("validation_result", False)
@@ -149,6 +160,9 @@ graph.add_node("extract_filters_node", extract_filters)
 graph.add_node("planner_node", generate_plan)
 graph.add_node("router_node", router_node)
 graph.add_node("retrieval_node", retrieve_docs)
+graph.add_node("crag_evaluator_node", evaluate_retrieval)
+graph.add_node("decompose_recompose_node", decompose_recompose)
+graph.add_node("crag_reject_node", crag_reject)
 graph.add_node("tools_node", call_tools)
 graph.add_node("structured_node", structured_extraction)
 graph.add_node("calculation_node", perform_calculation)
@@ -174,11 +188,23 @@ graph.add_conditional_edges(
     },
 )
 
-# --- After retrieval: branch to tools, structured, calculation, or synthesis ---
-# (Category 6: structured/calculation get docs via retrieval first)
-# (Category 3.1: RAG skips tools when plan has no tool: steps)
+# --- CRAG: Retrieval quality gate (evaluator → correct/ambiguous/incorrect) ---
+graph.add_edge("retrieval_node", "crag_evaluator_node")
 graph.add_conditional_edges(
-    "retrieval_node",
+    "crag_evaluator_node",
+    route_after_crag,
+    {
+        "crag_reject_node": "crag_reject_node",
+        "decompose_recompose_node": "decompose_recompose_node",
+        "tools_node": "tools_node",
+        "synthesis_node": "synthesis_node",
+        "structured_node": "structured_node",
+        "calculation_node": "calculation_node",
+    },
+)
+graph.add_edge("crag_reject_node", "finalize_node")
+graph.add_conditional_edges(
+    "decompose_recompose_node",
     route_after_retrieval,
     {
         "tools_node": "tools_node",

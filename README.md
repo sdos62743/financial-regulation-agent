@@ -8,20 +8,33 @@ Built with **LangGraph**, **LangChain**, **Scrapy**, **Chroma**, and **FastAPI**
 
 ## Features
 
-- Multi-source scraping: FOMC, Federal Reserve, SEC (Enforcement/Rules/Speeches), Basel, CFTC, FDIC, FCA (UK), FinCEN, EDGAR
-- Hybrid Search (BM25 + Vector similarity) with Cohere reranking
-- Intelligent LangGraph agent with intent classification, planning, retrieval, tools, synthesis & critic validation
-- LangSmith tracing enabled by default
-- API Key authentication on all endpoints
-- Docker support for consistent deployment
-- Runtime filters (`--limit`, `--year`)
-- Robust logging and error handling
+**Data Ingestion & Search**
+- Multi-regulator document ingestion from FOMC, Federal Reserve, SEC (Enforcement, Rules, Speeches), Basel, CFTC, FDIC, FCA (UK), FinCEN, and EDGAR
+- Hybrid retrieval combining BM25 and vector similarity with Cohere reranking
+- Structured data support for US Treasury rates, SOFR, FRED, and FFIEC
+
+**Corrective RAG (CRAG)**
+- Retrieval quality assessment with confidence-based routing (correct, ambiguous, incorrect)
+- Decompose-then-recompose processing to extract relevant content from noisy documents
+- Graceful degradation with clarification prompts when retrieval quality is insufficient
+
+**Agent Pipeline**
+- Orchestrated LangGraph workflow: intent classification → metadata filter extraction → planning → routing → retrieval → CRAG gate → synthesis → critic validation
+- Self-correcting validation loop: answers are verified against sources; invalid responses trigger planner refinement with feedback
+- Conditional routing to RAG, structured extraction, calculation tools, or direct response
+
+**Operations & Security**
+- API key authentication and rate limiting on all query endpoints
+- LangSmith tracing for observability and debugging
+- Docker-based deployment with health checks
+- Configurable runtime filters (limit, year, spider) for ingestion pipelines
+- Local CI parity: `make ci` runs lint, test, and security checks
 
 ---
 
 ## Agent Flow
 
-<img src="langgraph.png" alt="LangGraph Architecture" width="500" />
+<img src="langgraph.png" alt="LangGraph Architecture" width="1200" />
 
 ---
 
@@ -135,6 +148,8 @@ make docker-logs           # Follow agent logs
 make docker-shell          # Bash in agent container
 
 # Maintenance
+make ci                    # Run all CI checks locally (lint, test, security)
+make langgraph-png         # Regenerate langgraph.png
 make clean                 # clean-scraped + clean-logs + clean-cache
 make clean-scraped         # Remove data/scraped/*.json
 make clean-logs            # Remove logs/*
