@@ -2,6 +2,7 @@
 """
 Generate langgraph.png from the compiled LangGraph.
 Uses mermaid.ink API (requires network) or pygraphviz (requires: brew install graphviz, pip install pygraphviz).
+Resizes output to max_width for smaller file size and display.
 """
 import sys
 from pathlib import Path
@@ -10,6 +11,27 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from graph.builder import app
+
+# Target max width for the diagram (keeps aspect ratio)
+MAX_WIDTH = 500
+
+
+def _resize_if_needed(path: Path) -> None:
+    """Resize PNG to max_width if Pillow available."""
+    try:
+        from PIL import Image
+
+        with Image.open(path) as im:
+            w, h = im.size
+            if w <= MAX_WIDTH:
+                return
+            ratio = MAX_WIDTH / w
+            new_h = int(h * ratio)
+            resized = im.resize((MAX_WIDTH, new_h), Image.Resampling.LANCZOS)
+            resized.save(path, optimize=True)
+            print(f"   Resized {w}×{h} → {MAX_WIDTH}×{new_h}")
+    except ImportError:
+        pass
 
 
 def main():
@@ -20,6 +42,7 @@ def main():
     try:
         result = g.draw_png(output_file_path=str(output))
         if result or output.exists():
+            _resize_if_needed(output)
             print(f"✅ Generated {output} (pygraphviz)")
             return 0
     except ImportError:
@@ -36,6 +59,7 @@ def main():
             retry_delay=2.0,
         )
         if result and output.exists():
+            _resize_if_needed(output)
             print(f"✅ Generated {output} (mermaid.ink)")
             return 0
     except Exception as e:
