@@ -48,8 +48,7 @@ DEFAULT_CANDIDATE_MULTIPLIER = int(os.getenv("HYBRID_CANDIDATE_MULTIPLIER", 4))
 # Candidate pool caps (BM25 is built from store.get() output)
 DEFAULT_BM25_POOL_LIMIT = int(os.getenv("HYBRID_BM25_POOL_LIMIT", 800))
 DEFAULT_LATEST_POOL = int(os.getenv("HYBRID_LATEST_POOL", 250))
-
-RRF_K = 60
+DEFAULT_RRF_K = int(os.getenv("HYBRID_RRF_K", 60))
 
 _LATEST_RE = re.compile(
     r"\b(latest|recent|newest|current|most\s+recent|up[-\s]?to[-\s]?date)\b", re.I
@@ -246,7 +245,7 @@ async def apply_rrf(
             doc_id = _doc_identity(doc)
             if doc_id not in doc_map:
                 doc_map[doc_id] = doc
-            rrf_score[doc_id] += weight * (1.0 / (RRF_K + rank))
+            rrf_score[doc_id] += weight * (1.0 / (DEFAULT_RRF_K + rank))
 
     sorted_docs = sorted(rrf_score.items(), key=lambda x: x[1], reverse=True)
     return [doc_map[doc_id] for doc_id, _ in sorted_docs[:limit]]

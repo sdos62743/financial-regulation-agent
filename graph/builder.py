@@ -7,15 +7,22 @@ It connects all nodes and defines the execution flow with conditional routing
 and a controlled critic-based validation loop.
 """
 
+import os
+
 from langgraph.graph import END, START, StateGraph
 
+from graph.constants import (
+    DEFAULT_MAX_VALIDATION_ITERATIONS,
+    SAFE_CLARIFICATION_MSG,
+    SAFE_MEETING_MSG,
+)
 from graph.state import AgentState
 from observability.logger import log_error, log_info, log_warning
 from tools.registry import ToolRegistry
 
 # Import production nodes
 from .nodes.calculation import perform_calculation
-from .nodes.classify_intent import classify_intent  # ← Fixed
+from .nodes.classify_intent import classify_intent
 from .nodes.direct_response import direct_response
 from .nodes.extract_filters import extract_filters
 from .nodes.merge import merge_outputs
@@ -41,20 +48,9 @@ def finalize_response(state: AgentState) -> AgentState:
     # If invalid, force a safe user-facing message
     if not is_valid:
         query = (state.get("query") or "").strip()
-        msg = (
-            "I can’t confirm that answer from the retrieved documents. "
-            "Please specify which regulator/meeting series you mean (e.g., FOMC, Basel, CFTC, SEC), "
-            "or add a keyword like 'FOMC minutes' or 'Basel meeting'."
-        )
+        msg = SAFE_MEETING_MSG if "meeting" in query.lower() else SAFE_CLARIFICATION_MSG
 
-        # Optional: tailor slightly if the query mentions “meeting”
-        if "meeting" in query.lower():
-            msg = (
-                "Which meeting series do you mean (e.g., FOMC, Basel Committee, CFTC, SEC)? "
-                "I can then pull the most recent related documents."
-            )
-
-        # IMPORTANT: clear stale draft fields so controller can’t display them
+        # Clear stale draft fields so controller cannot display them
         return {
             "final_output": msg,
             "synthesized_response": "",
@@ -91,41 +87,53 @@ async def call_tools(state: AgentState) -> AgentState:
     return {"tool_outputs": tool_outputs}
 
 
-def decide_end(state: AgentState) -> str:
-    """Critic Decision - Controls validation loop with max iterations safety"""
+def router_node(state: AgentState) -> dict:
+    """Store route in state so post-retrieval branching knows where to go."""
+    route = route_query(state)
+    return {"route": route}
 
+
+def route_after_planner(state: AgentState) -> str:
+    """Send to retrieval for rag/structured/calculation; direct_response for other."""
+    route = state.get("route", "other")
+    if route in ("rag", "structured", "calculation"):
+        return "retrieval_node"
+    return "direct_response_node"
+
+
+def route_after_retrieval(state: AgentState) -> str:
+    """Branch to tools, structured, calculation, or synthesis based on route and plan."""
+    route = state.get("route", "rag")
+    if route == "structured":
+        return "structured_node"
+    if route == "calculation":
+        return "calculation_node"
+    # RAG path: only run tools when plan has tool: steps (Category 3.1)
+    plan = state.get("plan") or []
+    has_tool_steps = any("tool:" in str(s).lower() for s in plan)
+    return "tools_node" if has_tool_steps else "synthesis_node"
+
+
+def decide_end(state: AgentState) -> str:
+    """Critic Decision - Controls validation loop with max iterations safety."""
     is_valid = state.get("validation_result", False)
     iterations = state.get("iterations", 0)
+    max_iter = int(
+        os.getenv("MAX_VALIDATION_ITERATIONS", str(DEFAULT_MAX_VALIDATION_ITERATIONS))
+    )
 
-    # ==================== ORIGINAL CODE (Commented for debugging) ====================
-    # if iterations >= 3:
-    #     log_warning("Max validation iterations reached. Forcing completion.")
-    #     return END
-    #
-    # if not is_valid:
-    #     log_warning(f"Validation failed (Attempt {iterations+1}) - looping back to planner")
-    #     return "planner_node"
-    #
-    # log_info("✅ Validation passed - ending graph")
-    # return END
-    # ================================================================================
-
-    # ==================== TEMPORARY DEBUG VERSION ====================
-    if iterations >= 1:
-        log_warning(
-            "Max validation iterations (debug mode) reached. Forcing completion."
-        )
+    if iterations >= max_iter:
+        log_warning(f"Max validation iterations ({max_iter}) reached. Forcing completion.")
         return END
 
     if not is_valid:
         log_warning(
-            f"Validation failed (Attempt {iterations+1}) - looping back to planner"
+            f"Validation failed (Attempt {iterations + 1}) - looping back to planner"
         )
         return "planner_node"
 
     log_info("✅ Validation passed - ending graph")
     return END
-    # =================================================================
 
 
 # ----------------------------------------------------------------------
@@ -135,8 +143,9 @@ graph = StateGraph(AgentState)
 
 # Nodes
 graph.add_node("intent_node", classify_intent)
-graph.add_node("extract_filters_node", extract_filters)  # ← New node added
+graph.add_node("extract_filters_node", extract_filters)
 graph.add_node("planner_node", generate_plan)
+graph.add_node("router_node", router_node)
 graph.add_node("retrieval_node", retrieve_docs)
 graph.add_node("tools_node", call_tools)
 graph.add_node("structured_node", structured_extraction)
@@ -147,30 +156,35 @@ graph.add_node("direct_response_node", direct_response)
 graph.add_node("finalize_node", finalize_response)
 
 
-# ==================== ORIGINAL FLOW (Commented) ====================
-# graph.add_edge(START, "intent_node")
-# graph.add_edge("intent_node", "planner_node")
-# =================================================================
-
-# --- New Flow with Filter Extraction ---
+# Flow with Filter Extraction
 graph.add_edge(START, "intent_node")
 graph.add_edge("intent_node", "extract_filters_node")  # ← New edge
 graph.add_edge("extract_filters_node", "planner_node")  # ← New edge
 
-# --- Conditional routing after planning ---
+# --- Planning -> Router -> Retrieval or Direct ---
+graph.add_edge("planner_node", "router_node")
 graph.add_conditional_edges(
-    "planner_node",
-    route_query,
+    "router_node",
+    route_after_planner,
     {
-        "rag": "retrieval_node",
-        "structured": "structured_node",
-        "calculation": "calculation_node",
-        "other": "direct_response_node",
+        "retrieval_node": "retrieval_node",
+        "direct_response_node": "direct_response_node",
     },
 )
 
-# --- Flow after execution paths ---
-graph.add_edge("retrieval_node", "tools_node")
+# --- After retrieval: branch to tools, structured, calculation, or synthesis ---
+# (Category 6: structured/calculation get docs via retrieval first)
+# (Category 3.1: RAG skips tools when plan has no tool: steps)
+graph.add_conditional_edges(
+    "retrieval_node",
+    route_after_retrieval,
+    {
+        "tools_node": "tools_node",
+        "synthesis_node": "synthesis_node",
+        "structured_node": "structured_node",
+        "calculation_node": "calculation_node",
+    },
+)
 graph.add_edge("tools_node", "synthesis_node")
 graph.add_edge("structured_node", "synthesis_node")
 graph.add_edge("calculation_node", "synthesis_node")

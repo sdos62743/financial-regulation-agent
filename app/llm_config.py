@@ -10,7 +10,8 @@ from typing import Literal
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
-from observability.logger import log_error, log_info
+from app.config import Config
+from observability.logger import log_info
 
 # Force ChromaDB to stay silent
 os.environ["ANONYMIZED_TELEMETRY"] = "False"
@@ -29,7 +30,7 @@ def sanitize_gemini_name(name: str) -> str:
 @lru_cache(maxsize=1)
 def get_llm():
     """Returns a configured LLM instance."""
-    timeout = float(os.getenv("LLM_TIMEOUT", "30.0"))
+    timeout = Config.LLM_TIMEOUT
     max_retries = int(os.getenv("LLM_MAX_RETRIES", "3"))
 
     if LLM_PROVIDER == "gemini":
@@ -48,7 +49,7 @@ def get_llm():
             google_api_key=os.getenv("GOOGLE_API_KEY"),
             temperature=0.0,
             max_tokens=2048,
-            timeout=60,
+            timeout=int(timeout),
             max_retries=2,
             convert_system_message_to_human=True,
         )

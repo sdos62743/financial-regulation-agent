@@ -52,7 +52,6 @@ ITEM_PIPELINES = {
 # 4. DOWNLOADER MIDDLEWARES
 # =============================================================================
 DOWNLOADER_MIDDLEWARES = {
-    # High priority for Selenium to ensure JS renders before other processing
     "regcrawler.middlewares.RegcrawlerDownloaderMiddleware": 543,
 }
 
@@ -69,7 +68,7 @@ DOWNLOAD_WARNSIZE = 26214400
 
 CONCURRENT_REQUESTS = 4
 CONCURRENT_REQUESTS_PER_DOMAIN = 2
-DOWNLOAD_TIMEOUT = 60
+DOWNLOAD_TIMEOUT = int(os.getenv("DOWNLOAD_TIMEOUT", "120"))
 
 # =============================================================================
 # 6. ANTI-BLOCKING & BYPASS SETTINGS

@@ -3,14 +3,14 @@ You are a financial regulation metadata extractor. Convert user queries into str
 
 ### DATABASE SCHEMA (IMPORTANT)
 Return filters in this EXACT shape:
-{
+{{
   "regulators": ["CODE"] or null,
   "categories": ["policy"] or null,
   "types": ["publication"] or null,
   "year": 2023 or null,
   "jurisdiction": "US" or null,
   "sort": "latest" or null
-}
+}}
 
 ### REGULATOR CODES (use EXACT codes)
 - "Basel", "BCBS", "Basel Committee" -> ["BASEL"]
@@ -30,11 +30,18 @@ Return filters in this EXACT shape:
 - other
 
 ### ARTIFACT TYPE VOCABULARY (types)  [OPTIONAL FILTER]
-Only use if user explicitly asks for a document format/type.
+Only use if user explicitly asks for a document format/type. Use EXACT values (match Chroma metadata):
 - press releases, press release -> ["press_release"]
-- publication(s) -> ["publication"]
+- publication(s), reports -> ["publication"]
 - rule(s), final rule, proposed rule -> ["rule"]
-- guidance -> ["guidance"]
+- guidance, interpretive -> ["guidance"]
+- speech(es), speeches -> ["speech"]
+- litigation release(s), litigation -> ["litigation_release"]
+- admin proceeding(s), administrative -> ["admin_proceeding"]
+- FOMC minutes -> ["minutes"]
+- FOMC statement(s) -> ["statement"]
+- FOMC projections -> ["projections"]
+- FOMC transcript(s) -> ["transcript"]
 If not explicitly requested, set "types" to null.
 
 ### EXTRACTION RULES
@@ -75,10 +82,10 @@ If not explicitly requested, set "types" to null.
 Return ONLY valid JSON. No extra text. No markdown.
 
 ### EXAMPLES
-- "show me latest Basel document" -> {"regulators":["BASEL"],"categories":null,"types":null,"year":null,"jurisdiction":"Global","sort":"latest"}
-- "latest Basel policy publications" -> {"regulators":["BASEL"],"categories":["policy"],"types":["publication"],"year":null,"jurisdiction":"Global","sort":"latest"}
-- "CFTC enforcement actions" -> {"regulators":["CFTC"],"categories":["enforcement"],"types":null,"year":null,"jurisdiction":"US","sort":null}
-- "2023 SEC final rule" -> {"regulators":["SEC"],"categories":["rulemaking"],"types":["rule"],"year":2023,"jurisdiction":"US","sort":null}
+- "show me latest Basel document" -> {{"regulators":["BASEL"],"categories":null,"types":null,"year":null,"jurisdiction":"Global","sort":"latest"}}
+- "latest Basel policy publications" -> {{"regulators":["BASEL"],"categories":["policy"],"types":["publication"],"year":null,"jurisdiction":"Global","sort":"latest"}}
+- "CFTC enforcement actions" -> {{"regulators":["CFTC"],"categories":["enforcement"],"types":null,"year":null,"jurisdiction":"US","sort":null}}
+- "2023 SEC final rule" -> {{"regulators":["SEC"],"categories":["rulemaking"],"types":["rule"],"year":2023,"jurisdiction":"US","sort":null}}
 
 User Query: {query}
 JSON Output:

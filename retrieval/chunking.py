@@ -4,7 +4,6 @@ Optimized text chunking utilities for regulatory documents - Tier 1 2026.
 Standardized to use the project-wide embedding provider for semantic consistency.
 """
 
-import os
 from typing import Literal
 
 from langchain_experimental.text_splitter import SemanticChunker

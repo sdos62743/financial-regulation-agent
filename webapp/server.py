@@ -4,11 +4,8 @@ Server - Tier 1 Production Web Gateway
 Corrected imports to point to webapp/retrieval/query_controller.py.
 """
 
-import logging
 import os
 import time
-import traceback
-from typing import Any, List, Optional
 
 from dotenv import load_dotenv
 
@@ -17,6 +14,10 @@ load_dotenv(override=True)
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi.util import get_remote_address
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -36,11 +37,15 @@ from webapp.retrieval.query_controller import RAGController
 setup_environment()
 
 # 3. App Initialization
+limiter = Limiter(key_func=get_remote_address, default_limits=[Config.RATE_LIMIT])
 app = FastAPI(
     title="Financial Regulation Intelligence Terminal",
     description="Tier 1 RAG Agent for FOMC, SEC, Basel, CFTC & EDGAR",
     version="1.0.0",
 )
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
 
 
 # 4. Middleware
@@ -95,8 +100,12 @@ async def health_check():
 
 
 @app.post("/ask")
+@limiter.limit(Config.RATE_LIMIT)
 async def ask_rag(
-    data: ChatInput, _auth: APIKeyDep, request_id: str = Depends(get_request_context)
+    request: Request,
+    data: ChatInput,
+    _auth: APIKeyDep,
+    request_id: str = Depends(get_request_context),
 ):
     start_time = time.perf_counter()
 

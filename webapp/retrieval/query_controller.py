@@ -10,6 +10,7 @@ import os
 import traceback
 from typing import Any, Dict
 
+from app.config import Config
 from graph.builder import app as graph_app
 from graph.state import AgentState
 from observability.logger import log_error, log_info, log_warning
@@ -19,6 +20,10 @@ class RAGController:
     """
     Singleton controller for invoking the Financial Regulation Agent graph.
     Maintains graph instance efficiency across web requests.
+
+    Note (streaming vs ainvoke): The main API (/query) uses astream_events for
+    streaming. This webapp uses ainvoke with timeout for simpler request/response
+    semantics. For long queries, consider adding streaming support here.
     """
 
     def __init__(self):
@@ -41,9 +46,11 @@ class RAGController:
         self,
         query: str,
         thread_id: str = "default",
-        timeout: float = 60.0,
+        timeout: float | None = None,
     ) -> Dict[str, Any]:
         query = (query or "").strip()
+
+        timeout = timeout if timeout is not None else Config.QUERY_TIMEOUT
 
         if not query:
             log_warning("⚠️ [Controller] Empty query received")

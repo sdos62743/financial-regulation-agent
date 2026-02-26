@@ -35,6 +35,14 @@ class Config:
     PROJECT_NAME = os.getenv("LANGCHAIN_PROJECT", "financial-regulation-agent")
     EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
 
+    # Timeouts (seconds) - centralized for LLM, query controller, and Scrapy
+    LLM_TIMEOUT = float(os.getenv("LLM_TIMEOUT", "120"))
+    QUERY_TIMEOUT = float(os.getenv("QUERY_TIMEOUT", "240"))
+    DOWNLOAD_TIMEOUT = int(os.getenv("DOWNLOAD_TIMEOUT", "120"))
+
+    # Rate limiting (e.g. "100/minute" per IP)
+    RATE_LIMIT = os.getenv("RATE_LIMIT", "100/minute")
+
     @classmethod
     def as_dict(cls) -> Dict[str, Any]:
         """Returns config as dict for debugging or serialization."""

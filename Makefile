@@ -4,7 +4,7 @@
 
 .PHONY: help scrape ingest ingest-structured all docker-up docker-down \
         docker-logs docker-build docker-shell clean clean-scraped clean-logs clean-cache clean-db check-db diagnose-db test shell spiders \
-        logs logs-list chat web web-dev count-db benchmark evaluate
+        logs logs-list chat web web-dev count-db benchmark evaluate langgraph-png
 
 # Optional parameters (passed only if explicitly set)
 LIMIT  ?=
@@ -67,6 +67,7 @@ help:
 	@echo "  make clean-cache         # __pycache__, .pyc, httpcache, debug html"
 	@echo "  make clean-db            # Chroma collections (interactive)"
 	@echo "  make test                # Run pytest"
+	@echo "  make langgraph-png       # Regenerate langgraph.png (requires network)"
 	@echo "  make shell               # Bash with venv"
 	@echo "══════════════════════════════════════════════════════════════"
 
@@ -247,6 +248,11 @@ clean-db:
 test:
 	@echo "🧪 Running tests..."
 	pytest tests/ -v --tb=short
+
+# langgraph-png: Regenerate langgraph.png from the compiled graph (uses mermaid.ink API)
+langgraph-png:
+	@echo "📊 Generating langgraph.png..."
+	python3.11 scripts/generate_langgraph_png.py
 
 # shell: Open bash with venv activated
 shell:

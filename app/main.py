@@ -5,22 +5,24 @@ Final Production FastAPI Entry Point for Financial Regulation Agent
 
 import time
 
-from fastapi import Depends, FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import StreamingResponse
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi.util import get_remote_address
 
 from graph.builder import app as graph_app
-
-# Import structured logging and monitoring
 from observability.logger import log_error, log_info
 from observability.monitor import SystemMonitor
 
-# Import production configuration and dependencies
-from .config import setup_environment
+from .config import Config, setup_environment
 from .dependencies import APIKeyDep, QueryDep, RequestIDDep
 
-# Initialize configuration, logging, and observability
 setup_environment()
+
+limiter = Limiter(key_func=get_remote_address, default_limits=[Config.RATE_LIMIT])
 
 # Create FastAPI application
 api = FastAPI(
@@ -30,6 +32,9 @@ api = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
+api.state.limiter = limiter
+api.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+api.add_middleware(SlowAPIMiddleware)
 
 # CORS Middleware
 api.add_middleware(
@@ -55,7 +60,8 @@ async def health_check():
 
 
 @api.post("/query")
-async def process_query(query: QueryDep, api_key: APIKeyDep, request_id: RequestIDDep):
+@limiter.limit(Config.RATE_LIMIT)
+async def process_query(request: Request, query: QueryDep, api_key: APIKeyDep, request_id: RequestIDDep):
     """
     Main query endpoint with streaming response.
     Requires valid X-API-Key header.
@@ -63,7 +69,7 @@ async def process_query(query: QueryDep, api_key: APIKeyDep, request_id: Request
     start_time = time.perf_counter()
     SystemMonitor.record_active_requests(1)
 
-    log_info(f"Query received", query_preview=query[:100])
+    log_info("Query received", query_preview=query[:100])
 
     async def stream_response():
         try:
@@ -79,7 +85,7 @@ async def process_query(query: QueryDep, api_key: APIKeyDep, request_id: Request
         except Exception as e:
             log_error("Streaming error occurred", error=str(e))
             SystemMonitor.record_error()
-            yield f"data: An error occurred while processing your query.\n\n"
+            yield "data: An error occurred while processing your query.\n\n"
 
         finally:
             latency = time.perf_counter() - start_time

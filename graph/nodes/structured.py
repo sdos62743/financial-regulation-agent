@@ -31,8 +31,8 @@ async def structured_extraction(state: AgentState) -> Dict[str, Any]:
 
     doc_entries = []
     for i, doc in enumerate(retrieved_docs[:6], 1):
-        content = doc.get("page_content", "")
-        meta = doc.get("metadata", {})
+        content = doc.get("page_content", "") if isinstance(doc, dict) else getattr(doc, "page_content", "")
+        meta = doc.get("metadata", {}) if isinstance(doc, dict) else getattr(doc, "metadata", {}) or {}
         source = meta.get("source", "Unknown")
         date = meta.get("date", "N/A")
         doc_entries.append(f"Source {i} [{source} | {date}]:\n{content[:1200]}")

@@ -1,7 +1,4 @@
-You are a strict but fair regulatory compliance auditor.
-
-Evaluate whether the synthesized response is **sufficiently and accurately supported** by the provided source documents.
-Be precise, but do not be overly pedantic about exact wording or minor paraphrasing.
+You are a regulatory compliance auditor. Evaluate whether the response is supported by the provided sources.
 
 ### Response to evaluate:
 {response}
@@ -9,20 +6,14 @@ Be precise, but do not be overly pedantic about exact wording or minor paraphras
 ### Source Documents:
 {sources}
 
-### VALIDATION RULES
-1. Every major factual claim must be directly supported by at least one source.
-2. Dates, numbers, rule citations, and regulator names must be accurate.
-3. The response must not invent facts or attribute actions to the wrong regulator.
-4. Reasonable paraphrasing and summarization is acceptable if the core meaning is correct.
-5. If this is a retry (second or later attempt), be slightly more lenient.
+### RULES
+1) Support can come from source metadata (title, url, date, regulator, type, category) or excerpt. Claims matching metadata are VALID.
+2) Before rejecting a citation, check if the cited URL appears in any source (match by path, e.g. /9067-25). If it does, the citation is VALID.
+3) Paraphrasing is OK if meaning is preserved.
+4) {retry_note}
+5) For "latest" / "most recent" queries:
+   - VALID: "most recent among the provided documents" if the response cites a document that appears newest in the sources.
+   - INVALID: claiming it is the regulator's globally most recent publication unless sources explicitly show that.
 
 ### OUTPUT FORMAT
-Respond with **exactly** this format and nothing else:
-
-valid: true
-reason: The response is well supported by the sources.
-
-OR
-
-valid: false
-reason: The response claims [specific unsupported claim] which cannot be found in any source.
+Provide valid (boolean) and reason (one sentence). Use the structured schema.

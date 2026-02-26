@@ -7,7 +7,7 @@ All nodes read from and write to this state.
 """
 
 import operator
-from typing import Annotated, Any, Dict, List, TypedDict
+from typing import Annotated, Any, Dict, List, NotRequired, TypedDict
 
 
 class AgentState(TypedDict):
@@ -40,6 +40,10 @@ class AgentState(TypedDict):
     filters: Dict[str, Any]
     # ===================================================================================
 
+    # Route chosen by router_node: "rag" | "structured" | "calculation" | "other"
+    # Used to branch after retrieval (tools vs structured vs calculation)
+    route: NotRequired[str]
+
     # Retrieval & Tool Results
     # Using Annotated + operator.add ensures that if multiple nodes
     # find documents or tool results, they are all preserved in a list.
@@ -54,6 +58,9 @@ class AgentState(TypedDict):
     # This is critical for the decide_end logic in builder.py
     # Every time the critic runs, it should return {"iterations": 1}
     iterations: Annotated[int, operator.add]
+
+    # Feedback from validation when invalid (reason from critic) — planner uses to adjust
+    validation_feedback: NotRequired[str]
 
     # Optional final output
     final_output: str

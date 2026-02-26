@@ -45,7 +45,7 @@ async def merge_outputs(state: AgentState) -> Dict[str, Any]:
         regulator = metadata.get("regulator", "N/A")
 
         doc_entries.append(
-            f"Document {i} [Source: {source} | Regulator: {regulator}]:\n{content[:1500]}"
+            f"Document {i} [Source: {source} | Regulator: {regulator}]:\n{content[:5500]}"
         )
 
     docs_str = "\n\n".join(doc_entries) if doc_entries else "No documents available."

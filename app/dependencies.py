@@ -11,7 +11,6 @@ from typing import Annotated, Generator, Optional
 from fastapi import Depends, Header, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
-from app.config import Config
 from observability.logger import log_info, log_warning
 from observability.tracer import RequestTracer
 

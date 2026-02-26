@@ -25,6 +25,14 @@ class ExecutionPlan(BaseModel):
 async def generate_plan(state: AgentState) -> Dict[str, Any]:
     query = state.get("query", "").strip()
     intent = state.get("intent", "other")
+    feedback = state.get("validation_feedback", "").strip()
+
+    validation_feedback = ""
+    if feedback:
+        validation_feedback = (
+            f"### PREVIOUS VALIDATION FEEDBACK (adjust your plan accordingly):\n{feedback}"
+        )
+        log_info(f"🧠 [Planning Node] Incorporating validation feedback: {feedback[:80]}...")
 
     log_info(
         f"🧠 [Planning Node] Generating strategy for: {intent} | Query: {query[:60]}..."
@@ -37,7 +45,11 @@ async def generate_plan(state: AgentState) -> Dict[str, Any]:
         plan_prompt = load_prompt("plan")
 
         response = await (plan_prompt | structured_llm).ainvoke(
-            {"query": query, "intent": intent}
+            {
+                "query": query,
+                "intent": intent,
+                "validation_feedback": validation_feedback,
+            }
         )
 
         # ==================== OLD PARSING (commented) ====================

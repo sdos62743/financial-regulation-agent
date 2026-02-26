@@ -4,12 +4,14 @@ Given the user query and its classified intent, create a clear, logical, and eff
 
 Query: {query}
 Intent: {intent}
+{validation_feedback}
 
 ### REQUIREMENTS:
 - Break the task into logical, sequential steps.
 - Include retrieval of specific documents when needed.
 - Consider effective dates, regulatory versions (e.g., Basel III vs Basel IV), and multiple regulators if relevant.
 - Use tools or calculations only when truly necessary.
+- When a tool is needed, use format: "tool: <tool_name> <args if any>" (e.g. "tool: treasury_rates", "tool: fed_balance_sheet").
 - Keep each step short, actionable, and focused.
 
 ### OUTPUT FORMAT:
