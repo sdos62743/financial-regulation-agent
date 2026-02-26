@@ -61,7 +61,9 @@ async def health_check():
 
 @api.post("/query")
 @limiter.limit(Config.RATE_LIMIT)
-async def process_query(request: Request, query: QueryDep, api_key: APIKeyDep, request_id: RequestIDDep):
+async def process_query(
+    request: Request, query: QueryDep, api_key: APIKeyDep, request_id: RequestIDDep
+):
     """
     Main query endpoint with streaming response.
     Requires valid X-API-Key header.

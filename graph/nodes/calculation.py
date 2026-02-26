@@ -35,8 +35,16 @@ async def perform_calculation(state: AgentState) -> Dict[str, Any]:
     if retrieved_docs:
         data_parts.append("=== Regulatory Context ===")
         for i, doc in enumerate(retrieved_docs[:6], 1):
-            content = doc.get("page_content", "") if isinstance(doc, dict) else getattr(doc, "page_content", "")
-            meta = doc.get("metadata", {}) if isinstance(doc, dict) else getattr(doc, "metadata", {}) or {}
+            content = (
+                doc.get("page_content", "")
+                if isinstance(doc, dict)
+                else getattr(doc, "page_content", "")
+            )
+            meta = (
+                doc.get("metadata", {})
+                if isinstance(doc, dict)
+                else getattr(doc, "metadata", {}) or {}
+            )
             date_str = meta.get("date", "Unknown Date")
             data_parts.append(f"Doc {i} [{date_str}]: {content[:800]}")
 

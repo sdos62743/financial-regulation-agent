@@ -123,7 +123,9 @@ def decide_end(state: AgentState) -> str:
     )
 
     if iterations >= max_iter:
-        log_warning(f"Max validation iterations ({max_iter}) reached. Forcing completion.")
+        log_warning(
+            f"Max validation iterations ({max_iter}) reached. Forcing completion."
+        )
         return END
 
     if not is_valid:

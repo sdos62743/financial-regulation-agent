@@ -4,6 +4,7 @@ Generate langgraph.png from the compiled LangGraph.
 Uses mermaid.ink API (requires network) or pygraphviz (requires: brew install graphviz, pip install pygraphviz).
 Resizes output to max_width for smaller file size and display.
 """
+
 import sys
 from pathlib import Path
 
@@ -70,7 +71,9 @@ def main():
     mermaid = g.draw_mermaid()
     mermaid_path.write_text(mermaid, encoding="utf-8")
     print(f"⚠️ Could not generate PNG. Saved Mermaid to {mermaid_path}")
-    print("   Render at https://mermaid.live or run: brew install graphviz && pip install pygraphviz")
+    print(
+        "   Render at https://mermaid.live or run: brew install graphviz && pip install pygraphviz"
+    )
     return 1
 
 

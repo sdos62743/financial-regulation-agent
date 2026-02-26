@@ -29,10 +29,10 @@ async def generate_plan(state: AgentState) -> Dict[str, Any]:
 
     validation_feedback = ""
     if feedback:
-        validation_feedback = (
-            f"### PREVIOUS VALIDATION FEEDBACK (adjust your plan accordingly):\n{feedback}"
+        validation_feedback = f"### PREVIOUS VALIDATION FEEDBACK (adjust your plan accordingly):\n{feedback}"
+        log_info(
+            f"🧠 [Planning Node] Incorporating validation feedback: {feedback[:80]}..."
         )
-        log_info(f"🧠 [Planning Node] Incorporating validation feedback: {feedback[:80]}...")
 
     log_info(
         f"🧠 [Planning Node] Generating strategy for: {intent} | Query: {query[:60]}..."

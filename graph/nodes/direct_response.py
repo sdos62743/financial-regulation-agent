@@ -15,6 +15,7 @@ from observability.metrics import record_token_usage
 
 
 async def direct_response(state: AgentState) -> Dict[str, Any]:
+    """Handle greetings and general queries with zero artificial latency."""
     query = state.get("query", "")
     intent = state.get("intent", "other")
 

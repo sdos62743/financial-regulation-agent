@@ -7,7 +7,12 @@ All nodes read from and write to this state.
 """
 
 import operator
-from typing import Annotated, Any, Dict, List, NotRequired, TypedDict
+from typing import Annotated, Any, Dict, List, TypedDict
+
+try:
+    from typing import NotRequired
+except ImportError:
+    from typing_extensions import NotRequired
 
 
 class AgentState(TypedDict):

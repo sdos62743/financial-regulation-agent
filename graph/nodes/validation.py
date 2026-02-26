@@ -26,7 +26,9 @@ from observability.metrics import record_evaluation_score, record_token_usage
 class ValidationResult(BaseModel):
     """Structured output from the validation critic."""
 
-    valid: bool = Field(description="True if response is sufficiently supported by sources.")
+    valid: bool = Field(
+        description="True if response is sufficiently supported by sources."
+    )
     reason: str = Field(description="One sentence explaining the decision.")
 
 
@@ -49,7 +51,9 @@ def _extract_cited_urls(text: str) -> Set[str]:
         parts = re.findall(r"[\w-]+-\d{2,}", url)
         found.update(parts)
     # Standalone release numbers (e.g. 9070-25, Press Release 9070-25)
-    for m in re.finditer(r"(?:Press\s*Release\s*|Release\s*#?\s*)?(\d{4,5}-\d{2})", text or "", re.I):
+    for m in re.finditer(
+        r"(?:Press\s*Release\s*|Release\s*#?\s*)?(\d{4,5}-\d{2})", text or "", re.I
+    ):
         found.add(m.group(1))
     return found
 
@@ -151,7 +155,12 @@ async def validate_response(state: AgentState) -> Dict[str, Any]:
         if cited and source_urls:
             cited_in_sources = cited & source_urls
             not_in_sources = cited - source_urls
-            rejection_phrases = ("not in", "not present", "not included", "not in the provided")
+            rejection_phrases = (
+                "not in",
+                "not present",
+                "not included",
+                "not in the provided",
+            )
             reason_lower = (reason or "").lower()
             if (
                 not is_valid
@@ -160,7 +169,9 @@ async def validate_response(state: AgentState) -> Dict[str, Any]:
             ):
                 is_valid = True
                 reason = "Cited documents are in the provided sources."
-                log_info(f"✅ [Validation] Override: cited URLs {cited_in_sources} are in sources")
+                log_info(
+                    f"✅ [Validation] Override: cited URLs {cited_in_sources} are in sources"
+                )
 
         log_info(f"{'✅' if is_valid else '❌'} [Validation] Result: {is_valid}")
 

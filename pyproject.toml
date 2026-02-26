@@ -35,3 +35,27 @@ skip_gitignore = true
 pythonpath = ["."]
 asyncio_default_fixture_loop_scope = "function"
 markers = ["integration: marks tests requiring external services (Chroma, embeddings)"]
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+ignore = [
+    "D",           # docstrings (D100, D101, D102, etc.)
+    "BLE001",      # blind except
+    "E722",        # bare except
+    "E501",        # line too long
+]
+
+[tool.pylint.format]
+max-line-length = 88
+
+[tool.pylint.messages_control]
+disable = [
+    "missing-module-docstring",
+    "missing-class-docstring",
+    "missing-function-docstring",
+    "bare-except",
+    "broad-except",
+    "line-too-long",
+]
