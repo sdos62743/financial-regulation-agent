@@ -4,6 +4,7 @@
 # --- Formatting & Linting ---
 black>=24.0.0
 isort>=5.13.0
+flake8>=7.0.0
 # ruff is the new standard—it's 10x faster than other linters 
 # and catches the "from __future__" issues automatically.
 ruff>=0.3.0
