@@ -27,7 +27,7 @@ exclude = '''
 [tool.isort]
 profile = "black"
 line_length = 88
-known_first_party = ["app", "graph", "observability", "retrieval", "evaluation", "ingestion", "tools"]
+known_first_party = ["app", "graph", "observability", "retrieval", "evaluation", "ingestion", "tools", "webapp"]
 skip = [".git", ".venv", "data", "build", "dist"]
 skip_gitignore = true
 

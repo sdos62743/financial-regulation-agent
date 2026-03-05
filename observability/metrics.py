@@ -4,6 +4,7 @@ Production Metrics & Monitoring - Tier 1 Optimized
 Thread-safe Prometheus metrics for high-throughput async background tasks.
 """
 
+import asyncio
 import logging
 import time
 from typing import Callable
@@ -62,24 +63,29 @@ ERROR_COUNT = get_or_create_metric(
 # =============================================================================
 
 
-def record_token_usage(model: str, component: str, token_count: int):
-    """
-    Records token usage.
-    Matches the signature used in graph/nodes/ to prevent background task crashes.
-    """
+def _record_token_usage_sync(model: str, component: str, token_count: int):
+    """Sync impl - runs in thread pool when called from async context."""
     try:
-        # Safety for missing labels
         m = model or "unknown_model"
         c = component or "unknown_node"
         t = token_count if isinstance(token_count, (int, float)) else 0
-
         TOKEN_USAGE.labels(model=m, component=c).inc(t)
-
-        # PERF: Only log at debug level to keep the event loop fast
         log_debug(f"📊 [Metrics] {c} used {t} tokens ({m})")
-    except Exception as e:
-        # Fail silently in metrics to ensure the main Agent logic never stops
+    except Exception:
         pass
+
+
+def record_token_usage(model: str, component: str, token_count: int):
+    """
+    Records token usage. Non-blocking when called from async context.
+    """
+    try:
+        loop = asyncio.get_running_loop()
+        asyncio.create_task(
+            asyncio.to_thread(_record_token_usage_sync, model, component, token_count)
+        )
+    except RuntimeError:
+        _record_token_usage_sync(model, component, token_count)
 
 
 def record_evaluation_score(overall_score: float, query_type: str = "general"):

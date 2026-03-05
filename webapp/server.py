@@ -7,11 +7,6 @@ Corrected imports to point to webapp/retrieval/query_controller.py.
 import os
 import time
 
-from dotenv import load_dotenv
-
-# 1. Load environment variables
-load_dotenv(override=True)
-
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -22,18 +17,13 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 
-# Core App Config
+from app import bootstrap  # noqa: F401 - load .env before app.config
 from app.config import Config, setup_environment
 from app.dependencies import APIKeyDep, get_request_context
-
-# Observability
 from observability.logger import log_error, log_info
 from observability.monitor import SystemMonitor
-
-# FIXED: Reverted to your specific path structure
 from webapp.retrieval.query_controller import RAGController
 
-# 2. Initialize Environment
 setup_environment()
 
 # 3. App Initialization

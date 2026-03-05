@@ -20,18 +20,36 @@ def sample_query():
     return "What did the FOMC say about interest rates in their June 2023 meeting?"
 
 
+def _mock_extract_filters_llm(route: str, regulators=None):
+    """Create mock LLM that returns JSON with given route for extract_filters."""
+    import json
+    from types import SimpleNamespace
+
+    from langchain_core.runnables import RunnableLambda
+
+    payload = {
+        "regulators": regulators or ["FED"],
+        "categories": None,
+        "types": None,
+        "year": None,
+        "jurisdiction": "US",
+        "sort": None,
+        "route": route,
+    }
+    content = json.dumps(payload)
+
+    async def _fake_ainvoke(x):
+        return SimpleNamespace(content=content)
+
+    return RunnableLambda(_fake_ainvoke)
+
+
 @pytest.mark.integration
 @pytest.mark.asyncio
-@patch("graph.nodes.classify_intent.get_llm")
+@patch("graph.nodes.extract_filters.get_llm")
 async def test_full_agent_regulatory_lookup(mock_get_llm, sample_query):
     """Test complete agent flow for a typical regulatory lookup query"""
-    # Mock LLM to return regulatory_lookup intent so we exercise RAG path
-    mock_llm = AsyncMock()
-    mock_structured = AsyncMock()
-    mock_parsed = type("Parsed", (), {"category": "regulatory_lookup"})()
-    mock_structured.ainvoke.return_value = {"parsed": mock_parsed, "raw": AsyncMock()}
-    mock_llm.with_structured_output.return_value = mock_structured
-    mock_get_llm.return_value = mock_llm
+    mock_get_llm.return_value = _mock_extract_filters_llm("rag")
 
     result = await app.ainvoke({"query": sample_query})
 
@@ -46,15 +64,10 @@ async def test_full_agent_regulatory_lookup(mock_get_llm, sample_query):
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-@patch("graph.nodes.classify_intent.get_llm")
+@patch("graph.nodes.extract_filters.get_llm")
 async def test_full_agent_calculation_intent(mock_get_llm):
     """Test complete flow for a calculation-heavy query"""
-    mock_llm = AsyncMock()
-    mock_structured = AsyncMock()
-    mock_parsed = type("Parsed", (), {"category": "calculation"})()
-    mock_structured.ainvoke.return_value = {"parsed": mock_parsed, "raw": AsyncMock()}
-    mock_llm.with_structured_output.return_value = mock_structured
-    mock_get_llm.return_value = mock_llm
+    mock_get_llm.return_value = _mock_extract_filters_llm("calculation")
 
     query = "Calculate the impact of a 25 basis point rate hike on bank capital ratios"
     result = await app.ainvoke({"query": query})
@@ -72,15 +85,10 @@ async def test_full_agent_calculation_intent(mock_get_llm):
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-@patch("graph.nodes.classify_intent.get_llm")
+@patch("graph.nodes.extract_filters.get_llm")
 async def test_full_agent_structured_intent(mock_get_llm):
     """Test structured extraction intent"""
-    mock_llm = AsyncMock()
-    mock_structured = AsyncMock()
-    mock_parsed = type("Parsed", (), {"category": "structured"})()
-    mock_structured.ainvoke.return_value = {"parsed": mock_parsed, "raw": AsyncMock()}
-    mock_llm.with_structured_output.return_value = mock_structured
-    mock_get_llm.return_value = mock_llm
+    mock_get_llm.return_value = _mock_extract_filters_llm("structured")
 
     query = "Extract the key dates and decisions from the latest FOMC minutes"
     result = await app.ainvoke({"query": query})
@@ -101,7 +109,8 @@ async def test_self_correction_loop():
     # Force initial validation to fail
     initial_state = {
         "query": "Test query",
-        "intent": "regulatory_lookup",
+        "intent": "other",
+        "route": "rag",
         "plan": ["Retrieve documents", "Synthesize answer"],
         "filters": {},
         "retrieved_docs": [],

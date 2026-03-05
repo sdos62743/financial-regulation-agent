@@ -24,7 +24,7 @@ def sample_state():
     """Fixture for basic agent state"""
     return {
         "query": "What did the FOMC say about interest rates in January 2023?",
-        "intent": "",
+        "intent": "other",
         "plan": [],
         "filters": {},
         "retrieved_docs": [],
@@ -36,17 +36,36 @@ def sample_state():
     }
 
 
+def _mock_extract_filters_llm(route: str, regulators=None):
+    """Create mock LLM for extract_filters that returns JSON with given route."""
+    import json
+    from types import SimpleNamespace
+
+    from langchain_core.runnables import RunnableLambda
+
+    payload = {
+        "regulators": regulators or ["FED"],
+        "categories": None,
+        "types": None,
+        "year": None,
+        "jurisdiction": "US",
+        "sort": None,
+        "route": route,
+    }
+    content = json.dumps(payload)
+
+    async def _fake_ainvoke(x):
+        return SimpleNamespace(content=content)
+
+    return RunnableLambda(_fake_ainvoke)
+
+
 @pytest.mark.integration
 @pytest.mark.asyncio
-@patch("graph.nodes.classify_intent.get_llm")
+@patch("graph.nodes.extract_filters.get_llm")
 async def test_full_graph_regulatory_lookup(mock_get_llm, sample_state):
-    """Test complete flow for regulatory_lookup intent"""
-    mock_llm = AsyncMock()
-    mock_structured = AsyncMock()
-    mock_parsed = type("Parsed", (), {"category": "regulatory_lookup"})()
-    mock_structured.ainvoke.return_value = {"parsed": mock_parsed, "raw": AsyncMock()}
-    mock_llm.with_structured_output.return_value = mock_structured
-    mock_get_llm.return_value = mock_llm
+    """Test complete flow for rag route"""
+    mock_get_llm.return_value = _mock_extract_filters_llm("rag")
 
     sample_state["query"] = "Summarize the latest FOMC statement on inflation."
     result = await app.ainvoke(sample_state)
@@ -62,15 +81,10 @@ async def test_full_graph_regulatory_lookup(mock_get_llm, sample_state):
 
 @pytest.mark.integration
 @pytest.mark.asyncio
-@patch("graph.nodes.classify_intent.get_llm")
+@patch("graph.nodes.extract_filters.get_llm")
 async def test_full_graph_calculation(mock_get_llm, sample_state):
-    """Test complete flow for calculation intent"""
-    mock_llm = AsyncMock()
-    mock_structured = AsyncMock()
-    mock_parsed = type("Parsed", (), {"category": "calculation"})()
-    mock_structured.ainvoke.return_value = {"parsed": mock_parsed, "raw": AsyncMock()}
-    mock_llm.with_structured_output.return_value = mock_structured
-    mock_get_llm.return_value = mock_llm
+    """Test complete flow for calculation route"""
+    mock_get_llm.return_value = _mock_extract_filters_llm("calculation")
 
     sample_state["query"] = (
         "What is the current Fed Funds Rate and how does it compare to last year?"
@@ -89,10 +103,9 @@ async def test_full_graph_calculation(mock_get_llm, sample_state):
 
 @pytest.mark.asyncio
 async def test_routing_calculation_intent(sample_state):
-    """Test that calculation intent routes correctly"""
-    sample_state["intent"] = "calculation"
+    """Test that calculation route routes correctly"""
+    sample_state["route"] = "calculation"
 
-    # We can test routing directly via the router node
     from graph.nodes.router import route_query
 
     next_node = route_query(sample_state)
@@ -102,8 +115,8 @@ async def test_routing_calculation_intent(sample_state):
 
 @pytest.mark.asyncio
 async def test_routing_regulatory_lookup(sample_state):
-    """Test that regulatory_lookup routes to RAG"""
-    sample_state["intent"] = "regulatory_lookup"
+    """Test that rag route routes to RAG"""
+    sample_state["route"] = "rag"
 
     from graph.nodes.router import route_query
 
@@ -135,21 +148,17 @@ async def test_max_iterations_prevents_infinite_loop(sample_state):
     assert decision in (END, "__end__")  # Should force end after max iterations
 
 
-# Optional: Mock LLM test (advanced) - requires proper LangChain Runnable mocking
+# Optional: Mock LLM test for extract_filters node
 @pytest.mark.integration
 @pytest.mark.asyncio
-@patch("graph.nodes.classify_intent.get_llm")
-async def test_classify_with_mock(mock_get_llm, sample_state):
-    """Test classify node with mocked LLM response"""
-    mock_llm = AsyncMock()
-    mock_structured = AsyncMock()
-    mock_parsed = type("Parsed", (), {"category": "regulatory_lookup"})()
-    mock_structured.ainvoke.return_value = {"parsed": mock_parsed, "raw": AsyncMock()}
-    mock_llm.with_structured_output.return_value = mock_structured
-    mock_get_llm.return_value = mock_llm
+@patch("graph.nodes.extract_filters.get_llm")
+async def test_extract_filters_with_mock(mock_get_llm, sample_state):
+    """Test extract_filters node with mocked LLM response"""
+    mock_get_llm.return_value = _mock_extract_filters_llm("rag")
 
-    from graph.nodes.classify_intent import classify_intent
+    from graph.nodes.extract_filters import extract_filters
 
-    result = await classify_intent(sample_state)
+    result = await extract_filters(sample_state)
 
-    assert result["intent"] == "regulatory_lookup"
+    assert result["route"] == "rag"
+    assert "filters" in result

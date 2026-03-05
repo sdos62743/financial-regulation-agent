@@ -15,6 +15,29 @@ from graph.builder import app as graph_app
 from graph.state import AgentState
 from observability.logger import log_error, log_info, log_warning
 
+RATE_LIMIT_INDICATORS = (
+    "429",
+    "resource_exhausted",
+    "rate limit",
+    "quota exceeded",
+    "too many requests",
+    "RESOURCE_EXHAUSTED",
+)
+
+
+def _is_rate_limit_error(exc: BaseException) -> bool:
+    """Detect rate limit / quota errors from LLM providers (Gemini, OpenAI, etc.)."""
+    msg = str(exc).lower()
+    name = type(exc).__name__.lower()
+    for indicator in RATE_LIMIT_INDICATORS:
+        if indicator.lower() in msg or indicator.lower() in name:
+            return True
+    # Check wrapped cause (e.g., LangChain wraps provider errors)
+    cause = getattr(exc, "__cause__", None) or getattr(exc, "cause", None)
+    if cause:
+        return _is_rate_limit_error(cause)
+    return False
+
 
 class RAGController:
     """
@@ -69,12 +92,11 @@ class RAGController:
 
         initial_state: AgentState = {
             "query": query,
-            "intent": "classify_intent",
+            "intent": "other",
             "plan": [],
-            "filters": {},  # ✅ required by state
-            "retrieved_docs": [],  # ✅ correct key
+            "filters": {},
+            "retrieved_docs": [],
             "tool_outputs": [],
-            "response": "",
             "synthesized_response": "",
             "validation_result": False,
             "iterations": 0,
@@ -84,7 +106,7 @@ class RAGController:
 
         try:
             result = await asyncio.wait_for(
-                graph_app.ainvoke(initial_state, config=config),
+                graph_app.ainvoke(initial_state, config=config),  # type: ignore[arg-type]
                 timeout=timeout,
             )
 
@@ -118,6 +140,15 @@ class RAGController:
             }
 
         except Exception as e:
+            if _is_rate_limit_error(e):
+                log_error(
+                    f"⚠️ [Controller] Rate limit / quota exceeded | thread_id={thread_id}"
+                )
+                return {
+                    "error": "The service is temporarily at capacity. Please try again in a few minutes.",
+                    "answer": "**Service temporarily unavailable.** Please try again shortly.",
+                    "success": False,
+                }
             error_trace = traceback.format_exc()
             log_error(f"❌ [Controller] Graph Failure: {str(e)}", thread_id=thread_id)
             return {

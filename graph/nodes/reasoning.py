@@ -24,7 +24,7 @@ class ExecutionPlan(BaseModel):
 
 async def generate_plan(state: AgentState) -> Dict[str, Any]:
     query = state.get("query", "").strip()
-    intent = state.get("intent", "other")
+    route = state.get("route", "other")
     feedback = state.get("validation_feedback", "").strip()
 
     validation_feedback = ""
@@ -35,7 +35,7 @@ async def generate_plan(state: AgentState) -> Dict[str, Any]:
         )
 
     log_info(
-        f"🧠 [Planning Node] Generating strategy for: {intent} | Query: {query[:60]}..."
+        f"🧠 [Planning Node] Generating strategy for route={route} | Query: {query[:60]}..."
     )
 
     try:
@@ -47,7 +47,7 @@ async def generate_plan(state: AgentState) -> Dict[str, Any]:
         response = await (plan_prompt | structured_llm).ainvoke(
             {
                 "query": query,
-                "intent": intent,
+                "route": route,
                 "validation_feedback": validation_feedback,
             }
         )

@@ -1,9 +1,9 @@
 You are an expert strategic planner for a professional financial regulation RAG system.
 
-Given the user query and its classified intent, create a clear, logical, and efficient step-by-step plan.
+Given the user query and its route, create a clear, logical, and efficient step-by-step plan.
 
 Query: {query}
-Intent: {intent}
+Route: {route}
 {validation_feedback}
 
 ### REQUIREMENTS:

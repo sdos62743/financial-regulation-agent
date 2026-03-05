@@ -102,6 +102,29 @@ def _infer_jurisdiction(regs: Optional[List[str]]) -> Optional[str]:
     return None
 
 
+VALID_ROUTES = {"rag", "structured", "calculation", "other"}
+
+
+def _heuristic_route(query: str, filters: Dict[str, Any]) -> str:
+    """Infer route from query and filters when LLM output is missing or invalid."""
+    q = (query or "").lower()
+
+    calc_keywords = ["treasury", "balance sheet", "bank capital", "fed balance"]
+    if any(k in q for k in calc_keywords):
+        return "calculation"
+
+    structured_keywords = ["sofr", "interest rate", "rate today", "rates"]
+    if any(k in q for k in structured_keywords):
+        return "structured"
+
+    if filters.get("regulators") or filters.get("categories") or filters.get("types"):
+        return "rag"
+    if filters.get("sort") == "latest":
+        return "rag"
+
+    return "other"
+
+
 def _heuristic_filters(query: str) -> Dict[str, Any]:
     regs = _extract_regulators_heuristic(query)
     sort = "latest" if LATEST_RE.search(query or "") else None
@@ -224,7 +247,9 @@ async def extract_filters(state: AgentState) -> Dict[str, Any]:
     log_info(f"🔍 [Extract Filters] Analyzing: {query[:60]}...")
 
     if not query:
-        return {"filters": _heuristic_filters("")}
+        filters = _heuristic_filters("")
+        route = _heuristic_route(query, filters)
+        return {"filters": filters, "route": route, "intent": route}
 
     try:
         llm = get_llm()
@@ -238,15 +263,27 @@ async def extract_filters(state: AgentState) -> Dict[str, Any]:
         if raw_json is None:
             log_warning("extract_filters: LLM JSON parse failed. Using heuristics.")
             cleaned = _heuristic_filters(query)
+            route = _heuristic_route(query, cleaned)
         else:
             cleaned = _normalize_filters(query, raw_json)
+            raw_route = (raw_json.get("route") or "").strip().lower()
+            route = (
+                raw_route
+                if raw_route in VALID_ROUTES
+                else _heuristic_route(query, cleaned)
+            )
 
+        log_info(
+            f"✅ [Extract Filters] Route: {route} | Filters: {list(cleaned.keys())}"
+        )
         asyncio.create_task(_log_filter_metrics(llm, resp))
-        return {"filters": cleaned}
+        return {"filters": cleaned, "route": route, "intent": route}
 
     except Exception as e:
         log_error(f"❌ Filter Extraction Error: {e}", exc_info=True)
-        return {"filters": _heuristic_filters(query)}
+        filters = _heuristic_filters(query)
+        route = _heuristic_route(query, filters)
+        return {"filters": filters, "route": route, "intent": route}
 
 
 async def _log_filter_metrics(llm, response):

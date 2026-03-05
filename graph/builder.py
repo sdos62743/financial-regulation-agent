@@ -22,7 +22,6 @@ from tools.registry import ToolRegistry
 
 # Import production nodes
 from .nodes.calculation import perform_calculation
-from .nodes.classify_intent import classify_intent
 from .nodes.crag import crag_reject, decompose_recompose, evaluate_retrieval
 from .nodes.direct_response import direct_response
 from .nodes.extract_filters import extract_filters
@@ -55,16 +54,12 @@ def finalize_response(state: AgentState) -> AgentState:
         return {
             "final_output": msg,
             "synthesized_response": "",
-            "response": "",
         }
 
     # Valid but no final_output: fallback to synthesized/response
     synthesized = (state.get("synthesized_response") or "").strip()
-    response = (state.get("response") or "").strip()
     return {
-        "final_output": synthesized
-        or response
-        or "I couldn’t generate an answer. Please rephrase."
+        "final_output": synthesized or "I couldn't generate an answer. Please rephrase."
     }
 
 
@@ -155,7 +150,6 @@ def decide_end(state: AgentState) -> str:
 graph = StateGraph(AgentState)
 
 # Nodes
-graph.add_node("intent_node", classify_intent)
 graph.add_node("extract_filters_node", extract_filters)
 graph.add_node("planner_node", generate_plan)
 graph.add_node("router_node", router_node)
@@ -172,10 +166,9 @@ graph.add_node("direct_response_node", direct_response)
 graph.add_node("finalize_node", finalize_response)
 
 
-# Flow with Filter Extraction
-graph.add_edge(START, "intent_node")
-graph.add_edge("intent_node", "extract_filters_node")  # ← New edge
-graph.add_edge("extract_filters_node", "planner_node")  # ← New edge
+# Flow: extract_filters (filters + route) → planner → router
+graph.add_edge(START, "extract_filters_node")
+graph.add_edge("extract_filters_node", "planner_node")
 
 # --- Planning -> Router -> Retrieval or Direct ---
 graph.add_edge("planner_node", "router_node")
