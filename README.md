@@ -36,6 +36,8 @@ Built with **LangGraph**, **LangChain**, **Scrapy**, **Chroma**, and **FastAPI**
 
 <img src="langgraph.png" alt="LangGraph Architecture" width="900" />
 
+For a detailed system overview (components, data flow, sequence diagrams), see **[Architecture](docs/architecture.md)**.
+
 ---
 
 ## Quick Start
